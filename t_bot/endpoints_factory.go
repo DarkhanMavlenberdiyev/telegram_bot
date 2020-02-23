@@ -7,6 +7,31 @@ import (
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
+var (
+	replyBtn  = tb.ReplyButton{Text: "/hello"}
+	replyBtn3 = tb.ReplyButton{Text: "/input"}
+	replyKeys = [][]tb.ReplyButton{
+		{replyBtn},
+		{replyBtn3},
+	}
+	keyBut = tb.ReplyButton{
+		Text:     "My location",
+		Location: true,
+	}
+	replyKeys2 = [][]tb.ReplyButton{
+		{keyBut},
+	}
+
+	inlineBtn = tb.InlineButton{
+		Unique: "sad_moon",
+
+		Text: "🌚 Button #2",
+	}
+	inlineKeys = [][]tb.InlineButton{
+		[]tb.InlineButton{inlineBtn},
+	}
+)
+
 type Endpoints interface {
 	GetCrime() func(m *tb.Message)
 }
@@ -17,6 +42,30 @@ func NewEndpointsFactory(crimeEvent CrimeEvents) *endpointsFactory {
 
 type endpointsFactory struct {
 	crimeEvents CrimeEvents
+}
+
+func (ef *endpointsFactory) Hello(b *tb.Bot) func(m *tb.Message) {
+	return func(m *tb.Message) {
+		photo := &tb.Photo{File: tb.FromDisk("crime.jpg")}
+		b.Send(m.Sender, "Hi, "+m.Sender.FirstName+".Welcome to Crime bot")
+		b.Send(m.Sender, photo)
+	}
+}
+func (ef *endpointsFactory) Start(b *tb.Bot) func(m *tb.Message) {
+	return func(m *tb.Message) {
+		b.Send(m.Sender, "Choose", &tb.ReplyMarkup{
+			InlineKeyboard: nil,
+			ReplyKeyboard:  replyKeys,
+		})
+	}
+}
+func (ef *endpointsFactory) Input(b *tb.Bot) func(m *tb.Message) {
+	return func(m *tb.Message) {
+		b.Send(m.Sender, "Enter your location", &tb.ReplyMarkup{
+			InlineKeyboard: nil,
+			ReplyKeyboard:  replyKeys2,
+		})
+	}
 }
 
 func (ef *endpointsFactory) GetCrime(b *tb.Bot) func(m *tb.Message) {
