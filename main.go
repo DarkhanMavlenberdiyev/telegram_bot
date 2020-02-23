@@ -1,20 +1,40 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"math"
+	"os"
 	"time"
 
 	"./t_bot"
+	"github.com/urfave/cli"
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
 var (
-	command = ""
+	flags = []cli.Flag{
+		&cli.StringFlag{
+			Name:    "config",
+			Aliases: []string{"c"},
+		},
+	}
 )
 
 func main() {
+
+	app := cli.NewApp()
+	app.Flags = flags
+	app.Commands = cli.Commands{
+		&cli.Command{
+			Name:   "start",
+			Usage:  "start the bot",
+			Action: StartBot,
+		},
+	}
+	app.Run(os.Args)
+
+}
+
+func StartBot(d *cli.Context) error {
 	b, err := tb.NewBot(tb.Settings{
 		Token: "1065088890:AAHsp6mSFeTC0mf3sZ5WEi8ODL4ZfxHi1cg",
 		// You can also set custom API URL. If field is empty it equals to "https://api.telegram.org"
@@ -57,8 +77,9 @@ func main() {
 	}
 	if err != nil {
 		log.Fatal(err)
-		return
+		return err
 	}
+	endpoints := t_bot.NewEndpointsFactory(db)
 
 	b.Handle("/hello", func(m *tb.Message) {
 		//b.Send(m.Sender, "Hi, "+m.Sender.FirstName)
@@ -81,42 +102,9 @@ func main() {
 			InlineKeyboard: nil,
 			ReplyKeyboard:  replyKeys2,
 		})
-		command = m.Text
 	})
-
-	b.Handle(tb.OnLocation, func(m *tb.Message) {
-		long := fmt.Sprintf("%f", m.Location.Lng)
-		lat := fmt.Sprintf("%f", m.Location.Lat)
-		fmt.Println(long + " " + lat)
-		crimes, _ := db.GetAllCrimes()
-
-		minDistance := math.MaxFloat64
-		resCrime := crimes[0]
-
-		for _, crime := range crimes {
-			distance := distanceBetweenTwoLongLat(float64(m.Location.Lat), float64(m.Location.Lng), crime.Latitude, crime.Longitude)
-			fmt.Println(distance, crime)
-			if distance < minDistance {
-				minDistance = distance
-				resCrime = crime
-			}
-		}
-		fmt.Println(resCrime)
-		photo := &tb.Photo{File: tb.FromDisk(resCrime.Image)}
-		// res, _ := geocoder.Geocode(lat+", "+long, nil)
-		b.Send(m.Sender, "Location: "+resCrime.LocationName+"\n"+"Description: "+resCrime.Description)
-		b.Send(m.Sender, photo)
-	})
+	b.Handle(tb.OnLocation, endpoints.GetCrime(b))
 
 	b.Start()
-}
-func distanceBetweenTwoLongLat(lat1 float64, long1 float64, lat2 float64, long2 float64) float64 {
-	r := 6371.0090667
-	lat1 = lat1 * math.Pi / 180.0
-	long1 = long1 * math.Pi / 180.0
-	lat2 = lat2 * math.Pi / 180.0
-	long2 = long2 * math.Pi / 180.0
-	dlon := long1 - long2
-	d := math.Acos(math.Sin(lat1)*math.Sin(lat2)+math.Cos(lat1)*math.Cos(lat2)*math.Cos(dlon)) * r
-	return d
+	return nil
 }
