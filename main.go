@@ -62,6 +62,7 @@ func StartBot(d *cli.Context) error {
 	b.Handle("/hello", endpoints.Hello(b))
 	b.Handle("/start", endpoints.Start(b))
 	b.Handle("/input", endpoints.Input(b))
+	b.Handle("/allcrime", endpoints.ListCrime(b))
 	b.Handle(tb.OnLocation, endpoints.GetCrime(b))
 
 	b.Start()

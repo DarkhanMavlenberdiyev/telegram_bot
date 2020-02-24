@@ -24,8 +24,7 @@ var (
 
 	inlineBtn = tb.InlineButton{
 		Unique: "sad_moon",
-
-		Text: "🌚 Button #2",
+		Text:   "🌚 Button #2",
 	}
 	inlineKeys = [][]tb.InlineButton{
 		[]tb.InlineButton{inlineBtn},
@@ -47,7 +46,7 @@ type endpointsFactory struct {
 func (ef *endpointsFactory) Hello(b *tb.Bot) func(m *tb.Message) {
 	return func(m *tb.Message) {
 		photo := &tb.Photo{File: tb.FromDisk("crime.jpg")}
-		b.Send(m.Sender, "Hi, "+m.Sender.FirstName+".Welcome to Crime bot")
+		b.Send(m.Sender, "Hi, "+m.Sender.FirstName+". Welcome to Crime bot")
 		b.Send(m.Sender, photo)
 	}
 }
@@ -93,6 +92,30 @@ func (ef *endpointsFactory) GetCrime(b *tb.Bot) func(m *tb.Message) {
 		b.Send(m.Sender, photo)
 	}
 }
+
+func (ef *endpointsFactory) ListCrime(b *tb.Bot) func(m *tb.Message) {
+	return func(m *tb.Message) {
+		replyKeys2 := [][]tb.ReplyButton{}
+		crimes, _ := ef.crimeEvents.GetAllCrimes()
+		for _, crime := range crimes {
+			repBtn := tb.ReplyButton{
+				Text: crime.LocationName,
+			}
+			replyKeys2 = append(replyKeys2, []tb.ReplyButton{repBtn})
+			b.Handle(&repBtn, func(m *tb.Message) {
+				photo := &tb.Photo{File: tb.FromDisk(crime.Image)}
+				b.Send(m.Sender, "Location: "+crime.LocationName+"\n"+"Description: "+crime.Description)
+				b.Send(m.Sender, photo)
+			})
+		}
+
+		b.Send(m.Sender, "Choose one", &tb.ReplyMarkup{
+			ReplyKeyboard: replyKeys2,
+		})
+
+	}
+}
+
 func distanceBetweenTwoLongLat(lat1 float64, long1 float64, lat2 float64, long2 float64) float64 {
 	r := 6371.0090667
 	lat1 = lat1 * math.Pi / 180.0
