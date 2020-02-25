@@ -8,18 +8,18 @@ import (
 )
 
 var (
-	replyBtn  = tb.ReplyButton{Text: "/hello"}
-	replyBtn3 = tb.ReplyButton{Text: "/input"}
-	replyKeys = [][]tb.ReplyButton{
-		{replyBtn},
-		{replyBtn3},
+	ReplyBtn  = tb.ReplyButton{Text: "Help ❓"}
+	ReplyBtn3 = tb.ReplyButton{Text: "Find crime 🔪"}
+	ReplyKeys = [][]tb.ReplyButton{
+		{ReplyBtn},
+		{ReplyBtn3},
 	}
-	keyBut = tb.ReplyButton{
-		Text:     "My location",
+	KeyBut = tb.ReplyButton{
+		Text:     "My location 🌍",
 		Location: true,
 	}
-	replyKeys2 = [][]tb.ReplyButton{
-		{keyBut},
+	ReplyKeys2 = [][]tb.ReplyButton{
+		{KeyBut},
 	}
 
 	inlineBtn = tb.InlineButton{
@@ -46,15 +46,18 @@ type endpointsFactory struct {
 func (ef *endpointsFactory) Hello(b *tb.Bot) func(m *tb.Message) {
 	return func(m *tb.Message) {
 		photo := &tb.Photo{File: tb.FromDisk("crime.jpg")}
-		b.Send(m.Sender, "Hi, "+m.Sender.FirstName+". Welcome to Crime bot")
+		b.Send(m.Sender, "Hi, "+m.Sender.FirstName+". Welcome to Crime bot.\n Choose to continue", &tb.ReplyMarkup{
+			ReplyKeyboard: ReplyKeys,
+		})
 		b.Send(m.Sender, photo)
+
 	}
 }
 func (ef *endpointsFactory) Start(b *tb.Bot) func(m *tb.Message) {
 	return func(m *tb.Message) {
 		b.Send(m.Sender, "Choose", &tb.ReplyMarkup{
 			InlineKeyboard: nil,
-			ReplyKeyboard:  replyKeys,
+			ReplyKeyboard:  ReplyKeys,
 		})
 	}
 }
@@ -62,7 +65,7 @@ func (ef *endpointsFactory) Input(b *tb.Bot) func(m *tb.Message) {
 	return func(m *tb.Message) {
 		b.Send(m.Sender, "Enter your location", &tb.ReplyMarkup{
 			InlineKeyboard: nil,
-			ReplyKeyboard:  replyKeys2,
+			ReplyKeyboard:  ReplyKeys2,
 		})
 	}
 }
@@ -95,22 +98,19 @@ func (ef *endpointsFactory) GetCrime(b *tb.Bot) func(m *tb.Message) {
 
 func (ef *endpointsFactory) ListCrime(b *tb.Bot) func(m *tb.Message) {
 	return func(m *tb.Message) {
-		replyKeys2 := [][]tb.ReplyButton{}
+		replyKeys3 := make([][]tb.ReplyButton, 0)
 		crimes, _ := ef.crimeEvents.GetAllCrimes()
 		for _, crime := range crimes {
 			repBtn := tb.ReplyButton{
 				Text: crime.LocationName,
 			}
-			replyKeys2 = append(replyKeys2, []tb.ReplyButton{repBtn})
-			b.Handle(&repBtn, func(m *tb.Message) {
-				photo := &tb.Photo{File: tb.FromDisk(crime.Image)}
-				b.Send(m.Sender, "Location: "+crime.LocationName+"\n"+"Description: "+crime.Description)
-				b.Send(m.Sender, photo)
-			})
+
+			replyKeys3 = append(replyKeys3, []tb.ReplyButton{repBtn})
+
 		}
 
 		b.Send(m.Sender, "Choose one", &tb.ReplyMarkup{
-			ReplyKeyboard: replyKeys2,
+			ReplyKeyboard: replyKeys3,
 		})
 
 	}

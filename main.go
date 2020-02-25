@@ -60,8 +60,8 @@ func StartBot(d *cli.Context) error {
 	endpoints := t_bot.NewEndpointsFactory(db)
 
 	b.Handle("/hello", endpoints.Hello(b))
-	b.Handle("/start", endpoints.Start(b))
-	b.Handle("/input", endpoints.Input(b))
+	b.Handle("/start", endpoints.Hello(b))
+	b.Handle(&t_bot.ReplyBtn3, endpoints.Input(b))
 	b.Handle("/allcrime", endpoints.ListCrime(b))
 	b.Handle(tb.OnLocation, endpoints.GetCrime(b))
 
