@@ -11,13 +11,13 @@ import (
 )
 
 var (
-// flags = []cli.Flag{
-// 	&cli.StringFlag{
-// 		Name:    "config",
-// 		Aliases: []string{"c"},
-// 	},
-// }
-
+	// flags = []cli.Flag{
+	// 	&cli.StringFlag{
+	// 		Name:    "config",
+	// 		Aliases: []string{"c"},
+	// 	},
+	// }
+	correct = ""
 )
 
 func main() {
