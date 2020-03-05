@@ -1,7 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -55,15 +58,63 @@ func StartBot(d *cli.Context) error {
 		Port:     "8080",
 		Host:     "0.0.0.0",
 	}
+
 	db := t_bot.NewPostgreBot(user)
+	dbuser := t_bot.PostgreUser(user)
+	res, _ := db.GetAllCrimes()
+	users, _ := dbuser.GetAllUser()
+	go func() {
+		for true {
+			for _, r := range res {
+				for _, u := range users {
+					distance := t_bot.DistanceBetweenTwoLongLat(r.Latitude, r.Longitude, u.Latitude, u.Longitude) * 1000
+					datee, _ := time.Parse(t_bot.LayoutISO, r.Date)
+					dat := datee.Format("2006-01-02")
+					if distance < 2000.0 && r.IsSend == "false" && t_bot.Current == dat {
+						resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=15&l=map&pt=%f,%f,home~%f,%f,flag", u.Longitude, u.Latitude, u.Longitude, u.Latitude, r.Longitude, r.Latitude))
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer resp.Body.Close()
+						out, err := os.Create("filename.png")
+						if err != nil {
+							fmt.Println(err)
+						}
+						io.Copy(out, resp.Body)
+						defer out.Close()
+						sendUser := &tb.User{ID: u.ID}
+						distanceString := fmt.Sprintf("%f m", distance)
+						b.Send(sendUser, "Location: "+r.LocationName+"\nDescription: "+r.Description+"\nDeistance: "+distanceString)
+						photo := &tb.Photo{File: tb.FromDisk("filename.png")}
+						b.Send(sendUser, photo)
+					}
+				}
+				db.UpdateCrime(r.ID, &t_bot.Crime{
+					ID:           r.ID,
+					LocationName: r.LocationName,
+					Longitude:    r.Longitude,
+					Latitude:     r.Latitude,
+					Description:  r.Description,
+					Image:        r.Image,
+					Date:         r.Date,
+					IsSend:       "true",
+				})
+				res, _ = db.GetAllCrimes()
+
+			}
+		}
+	}()
 
 	endpoints := t_bot.NewEndpointsFactory(db)
+
+	endpointsUser := t_bot.EndpointsFactoryUser(dbuser)
 
 	b.Handle("/hello", endpoints.Hello(b))
 	b.Handle("/start", endpoints.Hello(b))
 	b.Handle(&t_bot.ReplyBtn3, endpoints.Input(b))
-	b.Handle("/allcrime", endpoints.ListCrime(b))
-	b.Handle(tb.OnLocation, endpoints.GetCrime(b))
+	b.Handle(&t_bot.ReplyBtn2, endpointsUser.AddHome(b, endpoints))
+	b.Handle(&t_bot.ReplyBtn1, endpointsUser.GetHome(b))
+	b.Handle(&t_bot.ReplyBtn, endpointsUser.DeleteHome(b))
 
 	b.Start()
 	return nil
