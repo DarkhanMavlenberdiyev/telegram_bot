@@ -6,9 +6,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"./t_bot"
+	"github.com/streadway/amqp"
 	"github.com/urfave/cli"
 	tb "gopkg.in/tucnak/telebot.v2"
 )
@@ -61,17 +63,94 @@ func StartBot(d *cli.Context) error {
 
 	db := t_bot.NewPostgreBot(user)
 	dbuser := t_bot.PostgreUser(user)
-	res, _ := db.GetAllCrimes()
+	// res, _ := db.GetAllCrimes()
 	users, _ := dbuser.GetAllUser()
+	// go func() {
+	// 	for true {
+	// 		for _, r := range res {
+	// 			for _, u := range users {
+	// 				distance := t_bot.DistanceBetweenTwoLongLat(r.Latitude, r.Longitude, u.Latitude, u.Longitude) * 1000
+	// 				datee, _ := time.Parse(t_bot.LayoutISO, r.Date)
+	// 				dat := datee.Format("2006-01-02")
+	// 				if distance < 2000.0 && r.IsSend == "false" && t_bot.Current == dat {
+	// 					resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=15&l=map&pt=%f,%f,home~%f,%f,flag", u.Longitude, u.Latitude, u.Longitude, u.Latitude, r.Longitude, r.Latitude))
+	// 					if err != nil {
+	// 						fmt.Println(err)
+	// 					}
+	// 					defer resp.Body.Close()
+	// 					out, err := os.Create("filename.png")
+	// 					if err != nil {
+	// 						fmt.Println(err)
+	// 					}
+	// 					io.Copy(out, resp.Body)
+	// 					defer out.Close()
+	// 					sendUser := &tb.User{ID: u.ID}
+	// 					distanceString := fmt.Sprintf("%f m", distance)
+	// 					b.Send(sendUser, "Location: "+r.LocationName+"\nDescription: "+r.Description+"\nDeistance: "+distanceString)
+	// 					photo := &tb.Photo{File: tb.FromDisk("filename.png")}
+	// 					b.Send(sendUser, photo)
+	// 				}
+	// 			}
+	// 			db.UpdateCrime(r.ID, &t_bot.Crime{
+	// 				ID:           r.ID,
+	// 				LocationName: r.LocationName,
+	// 				Longitude:    r.Longitude,
+	// 				Latitude:     r.Latitude,
+	// 				Description:  r.Description,
+	// 				Image:        r.Image,
+	// 				Date:         r.Date,
+	// 				IsSend:       "true",
+	// 			})
+	// 			res, _ = db.GetAllCrimes()
+
+	// 		}
+	// 	}
+	// }()
+
 	go func() {
-		for true {
-			for _, r := range res {
+		conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+		failOnError(err, "Failed to connect to RabbitMQ")
+		defer conn.Close()
+
+		ch, err := conn.Channel()
+		failOnError(err, "Failed to open a channel")
+		defer ch.Close()
+
+		q, err := ch.QueueDeclare(
+			"Crime", // name
+			true,    // durable
+			false,   // delete when unused
+			false,   // exclusive
+			false,   // no-wait
+			nil,     // arguments
+		)
+		failOnError(err, "Failed to declare a queue")
+
+		msgs, err := ch.Consume(
+			q.Name, // queue
+			"",     // consumer
+			true,   // auto-ack
+			false,  // exclusive
+			false,  // no-local
+			false,  // no-wait
+			nil,    // args
+		)
+		failOnError(err, "Failed to register a consumer")
+
+		forever := make(chan bool)
+
+		go func() {
+			for d := range msgs {
+				log.Printf("Received a message: %s", d.Body)
+				conv, _ := strconv.Atoi(string(d.Body))
+				crime, _ := db.GetCrime(conv)
+				fmt.Println(crime)
 				for _, u := range users {
-					distance := t_bot.DistanceBetweenTwoLongLat(r.Latitude, r.Longitude, u.Latitude, u.Longitude) * 1000
-					datee, _ := time.Parse(t_bot.LayoutISO, r.Date)
+					distance := t_bot.DistanceBetweenTwoLongLat(crime.Latitude, crime.Longitude, u.Latitude, u.Longitude) * 1000
+					datee, _ := time.Parse(t_bot.LayoutISO, crime.Date)
 					dat := datee.Format("2006-01-02")
-					if distance < 2000.0 && r.IsSend == "false" && t_bot.Current == dat {
-						resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=15&l=map&pt=%f,%f,home~%f,%f,flag", u.Longitude, u.Latitude, u.Longitude, u.Latitude, r.Longitude, r.Latitude))
+					if distance < 2000.0 && t_bot.Current == dat {
+						resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=15&l=map&pt=%f,%f,home~%f,%f,flag", u.Longitude, u.Latitude, u.Longitude, u.Latitude, crime.Longitude, crime.Latitude))
 						if err != nil {
 							fmt.Println(err)
 						}
@@ -84,25 +163,17 @@ func StartBot(d *cli.Context) error {
 						defer out.Close()
 						sendUser := &tb.User{ID: u.ID}
 						distanceString := fmt.Sprintf("%f m", distance)
-						b.Send(sendUser, "Location: "+r.LocationName+"\nDescription: "+r.Description+"\nDeistance: "+distanceString)
+						b.Send(sendUser, "Location: "+crime.LocationName+"\nDescription: "+crime.Description+"\nDeistance: "+distanceString)
 						photo := &tb.Photo{File: tb.FromDisk("filename.png")}
 						b.Send(sendUser, photo)
 					}
-				}
-				db.UpdateCrime(r.ID, &t_bot.Crime{
-					ID:           r.ID,
-					LocationName: r.LocationName,
-					Longitude:    r.Longitude,
-					Latitude:     r.Latitude,
-					Description:  r.Description,
-					Image:        r.Image,
-					Date:         r.Date,
-					IsSend:       "true",
-				})
-				res, _ = db.GetAllCrimes()
 
+				}
 			}
-		}
+		}()
+
+		log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+		<-forever
 	}()
 
 	endpoints := t_bot.NewEndpointsFactory(db)
@@ -118,4 +189,9 @@ func StartBot(d *cli.Context) error {
 
 	b.Start()
 	return nil
+}
+func failOnError(err error, msg string) {
+	if err != nil {
+		fmt.Errorf("%s: %s", msg, err)
+	}
 }

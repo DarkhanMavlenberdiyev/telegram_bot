@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/streadway/amqp"
 )
 
 type EndpointsCurl interface {
@@ -68,7 +69,7 @@ func (ef *endpointsFactory) CreateCrimeCurl() func(w http.ResponseWriter, r *htt
 			w.Write([]byte("Error: " + err.Error()))
 			return
 		}
-		createMap(crime.Image,crime.Longitude,crime.Latitude)
+		createMap(crime.Image, crime.Longitude, crime.Latitude)
 		result, err := ef.crimeEvents.CreateCrime(crime)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -81,16 +82,45 @@ func (ef *endpointsFactory) CreateCrimeCurl() func(w http.ResponseWriter, r *htt
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+		failOnError(err, "Failed to connect to RabbitMQ")
+		defer conn.Close()
+
+		ch, err := conn.Channel()
+		failOnError(err, "Failed to open a channel")
+		defer ch.Close()
+
+		q, err := ch.QueueDeclare(
+			"Crime", // name
+			true,    // durable
+			false,   // delete when unused
+			false,   // exclusive
+			false,   // no-wait
+			nil,     // arguments
+		)
+		failOnError(err, "Failed to declare a queue")
+
+		msg := amqp.Publishing{
+			Body: []byte(strconv.Itoa(crime.ID)),
+		}
+
+		err = ch.Publish(
+			"",     // exchange
+			q.Name, // routing key
+			false,  // mandatory
+			false,  // immediate
+			msg)
+		// failOnError(err, "Failed to publish a message")
 
 		w.Write(response)
 		w.WriteHeader(http.StatusCreated)
 
 	}
 }
-func createMap(name string,long float64,lat float64) {
-	lng := fmt.Sprintf("%f",long)
-	lt := fmt.Sprintf("%f",lat)
-	resp, err := http.Get("https://static-maps.yandex.ru/1.x/?ll="+lng+","+lt+"&size=450,450&z=16&l=map&pt="+lng+","+lt+",flag")
+func createMap(name string, long float64, lat float64) {
+	lng := fmt.Sprintf("%f", long)
+	lt := fmt.Sprintf("%f", lat)
+	resp, err := http.Get("https://static-maps.yandex.ru/1.x/?ll=" + lng + "," + lt + "&size=450,450&z=16&l=map&pt=" + lng + "," + lt + ",flag")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -161,5 +191,10 @@ func (ef *endpointsFactory) DeleteCrimeCurl(idParam string) func(w http.Response
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Crime is deleted successfully"))
 
+	}
+}
+func failOnError(err error, msg string) {
+	if err != nil {
+		fmt.Errorf("%s: %s", msg, err)
 	}
 }
