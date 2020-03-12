@@ -69,7 +69,7 @@ func (ef *endpointsFactory) GetHome(b *tb.Bot) func(m *tb.Message) {
 		} else {
 			long := fmt.Sprintf("%f", res.Longitude)
 			lat := fmt.Sprintf("%f", res.Latitude)
-			photo := &tb.Photo{File: tb.FromDisk(fmt.Sprintf("%f.jpg", m.Sender.ID))}
+			photo := &tb.Photo{File: tb.FromDisk(fmt.Sprintf("images/%f.jpg", m.Sender.ID))}
 			b.Send(m.Sender, "Your Location \nLongitude: "+long+"\nLatitude: "+lat)
 			b.Send(m.Sender, photo)
 		}
@@ -80,9 +80,9 @@ func (ef *endpointsFactory) DeleteHome(b *tb.Bot) func(m *tb.Message) {
 	return func(m *tb.Message) {
 		err := ef.usersInfo.DeleteUser(m.Sender.ID)
 		if err != nil {
-			b.Send(m.Sender, "Home is not exist")
+			b.Send(m.Sender, "Home location is not exist")
 		} else {
-			b.Send(m.Sender, "Home is successfully deleted")
+			b.Send(m.Sender, "Home location is successfully deleted")
 		}
 	}
 }
@@ -142,7 +142,7 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 			if dat == Current && minDistance < 1 {
 				distStr := fmt.Sprintf("%f m", minDistance*1000)
 				b.Send(m.Sender, "Location: "+resCrime.LocationName+"\nDescription: "+resCrime.Description+"\nDistance: "+distStr)
-				photo := &tb.Photo{File: tb.FromDisk(resCrime.Image)}
+				photo := &tb.Photo{File: tb.FromDisk("images/" + resCrime.Image)}
 				b.Send(m.Sender, photo)
 			}
 		}
@@ -152,8 +152,8 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 
 func (ef *endpointsFactory) Hello(b *tb.Bot) func(m *tb.Message) {
 	return func(m *tb.Message) {
-		photo := &tb.Photo{File: tb.FromDisk("crime.jpg")}
-		b.Send(m.Sender, "Hi, "+m.Sender.FirstName+". Welcome to Crime bot.\n Choose to continue", &tb.ReplyMarkup{
+		photo := &tb.Photo{File: tb.FromDisk("images/crime.jpg")}
+		b.Send(m.Sender, "Hi, "+m.Sender.FirstName+". Welcome to Crime bot.\nChoose to continue", &tb.ReplyMarkup{
 			ReplyKeyboard: ReplyKeys,
 		})
 		b.Send(m.Sender, photo)
@@ -243,11 +243,11 @@ func getCrime(ef *endpointsFactory, b *tb.Bot, m *tb.Message, lat float32, lng f
 		}
 		io.Copy(out, resp.Body)
 		defer out.Close()
-		photo := &tb.Photo{File: tb.FromDisk("curr.jpg")}
+		photo := &tb.Photo{File: tb.FromDisk("images/curr.jpg")}
 		b.Send(m.Sender, "Location: "+resCrime.LocationName+"\n"+"Description: "+resCrime.Description+"\nDistance: "+fmt.Sprintf("%f m", minDistance*1000))
 		b.Send(m.Sender, photo)
 	} else {
-		b.Send(m.Sender, "Crime location not found")
+		b.Send(m.Sender, "There are no crime events in your radius today")
 	}
 	b.Send(m.Sender, "Choose one", &tb.ReplyMarkup{
 		ReplyKeyboard: ReplyKeys,

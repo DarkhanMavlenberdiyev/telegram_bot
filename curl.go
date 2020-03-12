@@ -36,6 +36,7 @@ func StartServer(c *cli.Context) error {
 	endpoints := t_bot.NewEndpointsFactoryCurl(db)
 
 	router := mux.NewRouter()
+	router.Methods("GET").Path("/").HandlerFunc(endpoints.GetAllCrime())
 	router.Methods("GET").Path("/{id}").HandlerFunc(endpoints.GetCrimeCurl("id"))
 	router.Methods("PUT").Path("/{id}").HandlerFunc(endpoints.UpdateCrimeCurl("id"))
 	router.Methods("POST").Path("/").HandlerFunc(endpoints.CreateCrimeCurl())
