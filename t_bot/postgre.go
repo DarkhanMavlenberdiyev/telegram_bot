@@ -20,8 +20,9 @@ type postgreStore struct {
 func NewPostgreBot(config PostgreConfig) CrimeEvents {
 	db := pg.Connect(&pg.Options{
 		Addr:     config.Host + ":" + config.Port,
-		User:     "postgres",
+		User:     config.User,
 		Password: config.Password,
+		Database:"Crime",
 	})
 	return &postgreStore{db: db}
 }
@@ -29,15 +30,19 @@ func NewPostgreBot(config PostgreConfig) CrimeEvents {
 func PostgreUser(config PostgreConfig) UserInfo {
 	db := pg.Connect(&pg.Options{
 		Addr:     config.Host + ":" + config.Port,
-		User:     "postgres",
+		User:     config.User,
 		Password: config.Password,
+		Database:"Crime",
 	})
+
 	return &postgreStore{db: db}
 }
 
 func (p postgreStore) GetUser(id int) (*Users, error) {
 	user := &Users{ID: id}
 	err := p.db.Select(user)
+
+	fmt.Print(err)
 	if err != nil {
 		return nil, err
 	}
@@ -66,13 +71,14 @@ func (p postgreStore) DeleteUser(id int) error {
 func (p postgreStore) CreateUser(user *Users) (*Users, error) {
 
 	re := p.db.Insert(user)
+	fmt.Print(re)
 	return user, re
 }
 
 func (p postgreStore) GetAllCrimes() ([]*Crime, error) {
 	var crimes []*Crime
 	err := p.db.Model(&crimes).Select()
-
+	fmt.Print(crimes)
 	if err != nil {
 		return nil, err
 	}
@@ -118,5 +124,5 @@ func (p postgreStore) GetAllCrime() ([]*Crime, error) {
 	if err != nil {
 		return nil, err
 	}
-	return crimes, nil
+	return crimes, err
 }

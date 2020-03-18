@@ -34,5 +34,4 @@ type Crime struct {
 	Description  string  `json:"description"`
 	Image        string  `json:"image"`
 	Date         string  `json:"date"`
-	IsSend       string  `json:"is_send"`
 }

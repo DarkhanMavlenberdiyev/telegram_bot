@@ -125,26 +125,29 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 			b.Send(m.Sender, "Home Location is already exist")
 		} else {
 			b.Send(m.Sender, "Home location is added")
-			crimes, _ := end.crimeEvents.GetAllCrimes()
-			minDistance := math.MaxFloat64
-			resCrime := crimes[0]
-
-			for _, crime := range crimes {
-				distance := DistanceBetweenTwoLongLat(float64(res.Lat), float64(res.Lng), crime.Latitude, crime.Longitude)
-				fmt.Println(distance, crime)
-				if distance < minDistance {
-					minDistance = distance
-					resCrime = crime
-				}
-			}
-			datee, _ := time.Parse(LayoutISO, resCrime.Date)
-			dat := datee.Format(LayoutISO)
-			if dat == Current && minDistance < 1 {
-				distStr := fmt.Sprintf("%f m", minDistance*1000)
-				b.Send(m.Sender, "Location: "+resCrime.LocationName+"\nDescription: "+resCrime.Description+"\nDistance: "+distStr)
-				photo := &tb.Photo{File: tb.FromDisk("images/" + resCrime.Image)}
-				b.Send(m.Sender, photo)
-			}
+			//crimes, err := end.crimeEvents.GetAllCrimes()
+			//if err==nil {
+			//
+			//}
+			//minDistance := math.MaxFloat64
+			//resCrime := crimes[0]
+			//
+			//for _, crime := range crimes {
+			//	distance := DistanceBetweenTwoLongLat(float64(res.Lat), float64(res.Lng), crime.Latitude, crime.Longitude)
+			//	fmt.Println(distance, crime)
+			//	if distance < minDistance {
+			//		minDistance = distance
+			//		resCrime = crime
+			//	}
+			//}
+			//datee, _ := time.Parse(LayoutISO, resCrime.Date)
+			//dat := datee.Format(LayoutISO)
+			//if dat == Current && minDistance < 1 {
+			//	distStr := fmt.Sprintf("%f m", minDistance*1000)
+			//	b.Send(m.Sender, "Location: "+resCrime.LocationName+"\nDescription: "+resCrime.Description+"\nDistance: "+distStr)
+			//	photo := &tb.Photo{File: tb.FromDisk("images/" + resCrime.Image)}
+			//	b.Send(m.Sender, photo)
+			//}
 		}
 
 	}
@@ -237,7 +240,7 @@ func getCrime(ef *endpointsFactory, b *tb.Bot, m *tb.Message, lat float32, lng f
 			fmt.Println(err)
 		}
 		defer resp.Body.Close()
-		out, err := os.Create("curr.jpg")
+		out, err := os.Create("images/curr.jpg")
 		if err != nil {
 			fmt.Println(err)
 		}

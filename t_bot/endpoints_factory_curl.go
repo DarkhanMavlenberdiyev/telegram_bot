@@ -3,6 +3,7 @@ package t_bot
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/streadway/amqp"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/streadway/amqp"
 )
 
 type EndpointsCurl interface {
@@ -110,7 +110,7 @@ func (ef *endpointsFactory) CreateCrimeCurl() func(w http.ResponseWriter, r *htt
 			false,  // mandatory
 			false,  // immediate
 			msg)
-		// failOnError(err, "Failed to publish a message")
+		failOnError(err, "Failed to publish a message")
 
 		w.Write(response)
 		w.WriteHeader(http.StatusCreated)

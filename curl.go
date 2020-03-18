@@ -26,17 +26,17 @@ func main() {
 func StartServer(c *cli.Context) error {
 
 	user := t_bot.PostgreConfig{
-		User:     "postgres",
-		Password: "qwerty123",
-		Port:     "8080",
-		Host:     "0.0.0.0",
+		User:     "darkhan",
+		Password: "sheha2003",
+		Port:     "5432",
+		Host:     "127.0.0.1",
 	}
 	db := t_bot.NewPostgreBot(user)
 
 	endpoints := t_bot.NewEndpointsFactoryCurl(db)
 
 	router := mux.NewRouter()
-	router.Methods("GET").Path("/").HandlerFunc(endpoints.GetAllCrime())
+	//router.Methods("GET").Path("/").HandlerFunc(endpoints.GetAllCrime())
 	router.Methods("GET").Path("/{id}").HandlerFunc(endpoints.GetCrimeCurl("id"))
 	router.Methods("PUT").Path("/{id}").HandlerFunc(endpoints.UpdateCrimeCurl("id"))
 	router.Methods("POST").Path("/").HandlerFunc(endpoints.CreateCrimeCurl())
