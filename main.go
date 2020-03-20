@@ -134,12 +134,17 @@ func StartBot(d *cli.Context) error {
 
 	endpointsUser := t_bot.EndpointsFactoryUser(dbuser)
 
-	b.Handle("/hello", endpoints.Hello(b))
+
 	b.Handle("/start", endpoints.Hello(b))
 	b.Handle(&t_bot.ReplyBtn3, endpoints.Input(b))
 	b.Handle(&t_bot.ReplyBtn2, endpointsUser.AddHome(b, endpoints))
 	b.Handle(&t_bot.ReplyBtn1, endpointsUser.GetHome(b))
 	b.Handle(&t_bot.ReplyBtn, endpointsUser.DeleteHome(b))
+	b.Handle(&t_bot.Rad1,endpoints.GetRad1(b))
+	b.Handle(&t_bot.Rad2,endpoints.GetRad2(b))
+	b.Handle(&t_bot.Rad3,endpoints.GetRad3(b))
+	b.Handle(&t_bot.Rad4,endpoints.GetRad4(b))
+
 
 	b.Start()
 	return nil

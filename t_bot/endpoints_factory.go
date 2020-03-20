@@ -7,8 +7,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"strconv"
-	"sync"
 	"time"
 
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -20,11 +18,21 @@ var (
 	ReplyBtn     = tb.ReplyButton{Text: "Delete HOME Location"}
 	ReplyBtn1    = tb.ReplyButton{Text: "My HOME location"}
 	ReplyBtn2    = tb.ReplyButton{Text: "Add HOME location"}
-	ReplyBtn3    = tb.ReplyButton{Text: "Find crime 🔪"}
+	ReplyBtn3    = tb.ReplyButton{Text: "Find crime 🔪",}
+
 	ReplyKeys    = [][]tb.ReplyButton{
 		[]tb.ReplyButton{ReplyBtn, ReplyBtn3},
 		[]tb.ReplyButton{ReplyBtn1, ReplyBtn2},
 	}
+
+	Rad1 = tb.InlineButton{Text:"100 m",Unique:"m1"}
+	Rad2 = tb.InlineButton{Text:"500 m",Unique:",m2"}
+	Rad3 = tb.InlineButton{Text:"1000 m",Unique:"m3"}
+	Rad4 = tb.InlineButton{Text:"2000 m",Unique:"m4"}
+
+	LocLat = 0.0
+	LocLng = 0.0
+
 	KeyBut = tb.ReplyButton{
 		Text:     "My location 🌍",
 		Location: true,
@@ -33,15 +41,13 @@ var (
 		{KeyBut},
 	}
 
-	inlineBtn = tb.InlineButton{
-		Unique: "sad_moon",
-		Text:   "🌚 Button #2",
-	}
 	inlineKeys = [][]tb.InlineButton{
-		[]tb.InlineButton{inlineBtn},
+		[]tb.InlineButton{Rad1,Rad2},
+		[]tb.InlineButton{Rad3,Rad4},
 	}
-	radius    = ""
-	rad       = 0.0
+
+	radMarkup = &tb.ReplyMarkup{InlineKeyboard:      inlineKeys,}
+
 	LayoutISO = "2006-01-02"
 )
 
@@ -112,9 +118,8 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 		if err != nil {
 			fmt.Println(err)
 		}
-		// fmt.Println(resp)
 		defer resp.Body.Close()
-		out, err := os.Create(fmt.Sprintf("%f.jpg", m.Sender.ID))
+		out, err := os.Create(fmt.Sprintf("images/%f.jpg", m.Sender.ID))
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -125,29 +130,28 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 			b.Send(m.Sender, "Home Location is already exist")
 		} else {
 			b.Send(m.Sender, "Home location is added")
-			//crimes, err := end.crimeEvents.GetAllCrimes()
-			//if err==nil {
-			//
-			//}
-			//minDistance := math.MaxFloat64
-			//resCrime := crimes[0]
-			//
-			//for _, crime := range crimes {
-			//	distance := DistanceBetweenTwoLongLat(float64(res.Lat), float64(res.Lng), crime.Latitude, crime.Longitude)
-			//	fmt.Println(distance, crime)
-			//	if distance < minDistance {
-			//		minDistance = distance
-			//		resCrime = crime
-			//	}
-			//}
-			//datee, _ := time.Parse(LayoutISO, resCrime.Date)
-			//dat := datee.Format(LayoutISO)
-			//if dat == Current && minDistance < 1 {
-			//	distStr := fmt.Sprintf("%f m", minDistance*1000)
-			//	b.Send(m.Sender, "Location: "+resCrime.LocationName+"\nDescription: "+resCrime.Description+"\nDistance: "+distStr)
-			//	photo := &tb.Photo{File: tb.FromDisk("images/" + resCrime.Image)}
-			//	b.Send(m.Sender, photo)
-			//}
+			crimes, _ := end.crimeEvents.GetAllCrimes()
+			if len(crimes)>=0{
+				minDistance := math.MaxFloat64
+				resCrime := crimes[0]
+
+				for _, crime := range crimes {
+					distance := DistanceBetweenTwoLongLat(float64(res.Lat), float64(res.Lng), crime.Latitude, crime.Longitude)
+					fmt.Println(distance, crime)
+					if distance < minDistance {
+						minDistance = distance
+						resCrime = crime
+					}
+				}
+				datee, _ := time.Parse(LayoutISO, resCrime.Date)
+				dat := datee.Format(LayoutISO)
+				if dat == Current && minDistance < 1 {
+					distStr := fmt.Sprintf("%f m", minDistance*1000)
+					b.Send(m.Sender, "Location: "+resCrime.LocationName+"\nDescription: "+resCrime.Description+"\nDistance: "+distStr)
+					photo := &tb.Photo{File: tb.FromDisk("images/" + resCrime.Image)}
+					b.Send(m.Sender, photo)
+				}
+			}
 		}
 
 	}
@@ -187,44 +191,53 @@ func (ef *endpointsFactory) Input(b *tb.Bot) func(m *tb.Message) {
 		})
 
 		res := <-loc
-		fmt.Println(res)
-		g := &sync.WaitGroup{}
-		g.Add(1)
-		getCrime(ef, b, m, res.Lat, res.Lng, g)
-		g.Wait()
+		b.Send(m.Sender,"Chose radius you want",radMarkup)
+
+		LocLat = float64(res.Lat)
+		LocLng = float64(res.Lng)
+
+
 
 	}
 }
 
-func getCrime(ef *endpointsFactory, b *tb.Bot, m *tb.Message, lat float32, lng float32, g *sync.WaitGroup) {
-	defer g.Done()
-	b.Send(m.Sender, "Enter the radius you want find (m)")
-	messages := make(chan string)
 
-	b.Handle(tb.OnText, func(m *tb.Message) {
-		messages <- m.Text
-	})
+func (ef *endpointsFactory) GetRad1(b *tb.Bot) func(c *tb.Callback){
+	return func(c *tb.Callback) {
+		b.Respond(c,&tb.CallbackResponse{
+			CallbackID:c.ID,
+			Text:       "Ok",
+			ShowAlert:  false,
+			URL:        "",
+		})
 
-	radius = <-messages
-	res, cor := check(radius)
-	if cor == true {
-		rad = res
-		radius = ""
-	} else if cor == false && radius != "" {
-		b.Send(m.Sender, "Incorrect input. Try again...")
-		radius = ""
-		getCrime(ef, b, m, lat, lng, g)
-		return
+		GetCrime(ef,b,c,100.0,LocLat,LocLng)
 	}
-
+}
+func (ef *endpointsFactory) GetRad2(b *tb.Bot) func(c *tb.Callback){
+	return func(c *tb.Callback) {
+		GetCrime(ef,b,c,500.0,LocLat,LocLng)
+	}
+}
+func (ef *endpointsFactory) GetRad3(b *tb.Bot) func(c *tb.Callback){
+	return func(c *tb.Callback) {
+		GetCrime(ef,b,c,1000.0,LocLat,LocLng)
+	}
+}
+func (ef *endpointsFactory) GetRad4(b *tb.Bot) func(c *tb.Callback){
+	return func(c *tb.Callback) {
+		GetCrime(ef,b,c,2000.0,LocLat,LocLng)
+	}
+}
+func GetCrime(ef *endpointsFactory,b *tb.Bot,m *tb.Callback, r float64,lat float64,lng float64) {
+	b.EditReplyMarkup(m.Message,&tb.ReplyMarkup{})
 	crimes, _ := ef.crimeEvents.GetAllCrimes()
-
 	minDistance := math.MaxFloat64
 	resCrime := crimes[0]
 
 	for _, crime := range crimes {
-		distance := DistanceBetweenTwoLongLat(float64(lat), float64(lng), crime.Latitude, crime.Longitude)
-		fmt.Println(distance, crime)
+		distance := DistanceBetweenTwoLongLat(lat, lng, crime.Latitude, crime.Longitude)
+
 		datee, _ := time.Parse(LayoutISO, crime.Date)
 		dat := datee.Format("2006-01-02")
 		if distance < minDistance && dat == Current {
@@ -232,9 +245,8 @@ func getCrime(ef *endpointsFactory, b *tb.Bot, m *tb.Message, lat float32, lng f
 			resCrime = crime
 		}
 	}
-	fmt.Println(resCrime)
-	if rad == 0.0 || minDistance < rad/1000 {
-		// b.Send(m.Sender, photo)
+	if minDistance < r/1000 {
+
 		resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=14&l=map&pt=%f,%f,vkbkm~%f,%f,flag", lng, lat, lng, lat, resCrime.Longitude, resCrime.Latitude))
 		if err != nil {
 			fmt.Println(err)
@@ -269,9 +281,3 @@ func DistanceBetweenTwoLongLat(lat1 float64, long1 float64, lat2 float64, long2 
 	return d
 }
 
-func check(r string) (float64, bool) {
-	if res, err := strconv.ParseFloat(r, 64); err == nil {
-		return res, true
-	}
-	return 0.0, false
-}
