@@ -15,18 +15,26 @@ import (
 var (
 	current_time = time.Now().Local()
 	Current      = current_time.Format("2006-01-02")
-	ReplyBtn     = tb.ReplyButton{Text: "Delete HOME Location"}
-	ReplyBtn1    = tb.ReplyButton{Text: "My HOME location"}
-	ReplyBtn2    = tb.ReplyButton{Text: "Add HOME location"}
+	HomeDel     = tb.InlineButton{Text: "Delete HOME Location",Unique:"h1"}
+	HomeMy   = tb.InlineButton{Text: "My HOME location",Unique:"h2"}
+	HomeAdd    = tb.InlineButton{Text: "Add HOME location",Unique:"h3"}
+	ComeBack = tb.InlineButton{Text:"Back",Unique:"h4"}
+
+	ReplyHome 	= tb.ReplyButton{Text:"Home location"}
 	ReplyBtn3    = tb.ReplyButton{Text: "Find crime 🔪",}
 
+	homeKeys = [][]tb.InlineButton{
+		[]tb.InlineButton{HomeMy,HomeAdd},
+		[]tb.InlineButton{HomeDel,ComeBack},
+
+	}
+
 	ReplyKeys    = [][]tb.ReplyButton{
-		[]tb.ReplyButton{ReplyBtn, ReplyBtn3},
-		[]tb.ReplyButton{ReplyBtn1, ReplyBtn2},
+		[]tb.ReplyButton{ReplyHome, ReplyBtn3},
 	}
 
 	Rad1 = tb.InlineButton{Text:"100 m",Unique:"m1"}
-	Rad2 = tb.InlineButton{Text:"500 m",Unique:",m2"}
+	Rad2 = tb.InlineButton{Text:"500 m",Unique:"m2"}
 	Rad3 = tb.InlineButton{Text:"1000 m",Unique:"m3"}
 	Rad4 = tb.InlineButton{Text:"2000 m",Unique:"m4"}
 
@@ -67,34 +75,49 @@ type endpointsFactory struct {
 	usersInfo   UserInfo
 }
 
-func (ef *endpointsFactory) GetHome(b *tb.Bot) func(m *tb.Message) {
-	return func(m *tb.Message) {
+func (ef *endpointsFactory) GetHome(b *tb.Bot) func(m *tb.Callback) {
+	return func(m *tb.Callback) {
 		res, err := ef.usersInfo.GetUser(m.Sender.ID)
 		if err != nil {
-			b.Send(m.Sender, "Home location is not found")
+			//b.Send(m.Sender, "Home location is not found")
+			b.Respond(m,&tb.CallbackResponse{
+				CallbackID: "",
+				Text:       "Home location is not found",
+				ShowAlert:  true,
+				URL:        "",
+			})
 		} else {
 			long := fmt.Sprintf("%f", res.Longitude)
 			lat := fmt.Sprintf("%f", res.Latitude)
 			photo := &tb.Photo{File: tb.FromDisk(fmt.Sprintf("images/%f.jpg", m.Sender.ID))}
 			b.Send(m.Sender, "Your Location \nLongitude: "+long+"\nLatitude: "+lat)
 			b.Send(m.Sender, photo)
+			b.Send(m.Sender,">>",&tb.ReplyMarkup{InlineKeyboard:homeKeys})
 		}
 	}
 }
-
-func (ef *endpointsFactory) DeleteHome(b *tb.Bot) func(m *tb.Message) {
+func (ef *endpointsFactory) ListHomeKeys(b *tb.Bot) func(m *tb.Message){
 	return func(m *tb.Message) {
+		b.Send(m.Sender,">>",&tb.ReplyMarkup{
+			InlineKeyboard:      homeKeys,
+		})
+	}
+}
+
+func (ef *endpointsFactory) DeleteHome(b *tb.Bot) func(m *tb.Callback) {
+	return func(m *tb.Callback) {
 		err := ef.usersInfo.DeleteUser(m.Sender.ID)
 		if err != nil {
-			b.Send(m.Sender, "Home location is not exist")
+			b.Respond(m, &tb.CallbackResponse{Text:"Home location is not exist",ShowAlert:true})
+
 		} else {
-			b.Send(m.Sender, "Home location is successfully deleted")
+			b.Respond(m, &tb.CallbackResponse{Text:"Home location is successfully deleted",})
 		}
 	}
 }
 
-func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb.Message) {
-	return func(m *tb.Message) {
+func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb.Callback) {
+	return func(m *tb.Callback) {
 		b.Send(m.Sender, "Send me your geolocation")
 		loc := make(chan *tb.Location)
 		b.Handle(tb.OnLocation, func(m *tb.Message) {
@@ -127,31 +150,34 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 		defer out.Close()
 		if err != nil {
 			fmt.Println(err)
-			b.Send(m.Sender, "Home Location is already exist")
+			//b.Send(m.Sender, "Home Location is already exist")
+			b.Respond(m,&tb.CallbackResponse{Text:"Home Location is already exist ",ShowAlert:true})
 		} else {
-			b.Send(m.Sender, "Home location is added")
-			crimes, _ := end.crimeEvents.GetAllCrimes()
-			if len(crimes)>=0{
-				minDistance := math.MaxFloat64
-				resCrime := crimes[0]
-
-				for _, crime := range crimes {
-					distance := DistanceBetweenTwoLongLat(float64(res.Lat), float64(res.Lng), crime.Latitude, crime.Longitude)
-					fmt.Println(distance, crime)
-					if distance < minDistance {
-						minDistance = distance
-						resCrime = crime
-					}
-				}
-				datee, _ := time.Parse(LayoutISO, resCrime.Date)
-				dat := datee.Format(LayoutISO)
-				if dat == Current && minDistance < 1 {
-					distStr := fmt.Sprintf("%f m", minDistance*1000)
-					b.Send(m.Sender, "Location: "+resCrime.LocationName+"\nDescription: "+resCrime.Description+"\nDistance: "+distStr)
-					photo := &tb.Photo{File: tb.FromDisk("images/" + resCrime.Image)}
-					b.Send(m.Sender, photo)
-				}
-			}
+			//b.Send(m.Sender, "Home location is added")
+			b.Respond(m,&tb.CallbackResponse{Text:"Home location is added"})
+			b.Send(m.Sender,">>",&tb.ReplyMarkup{InlineKeyboard:homeKeys})
+			//crimes, _ := end.crimeEvents.GetAllCrimes()
+			//if len(crimes)>=0{
+			//	minDistance := math.MaxFloat64
+			//	resCrime := crimes[0]
+			//
+			//	for _, crime := range crimes {
+			//		distance := DistanceBetweenTwoLongLat(float64(res.Lat), float64(res.Lng), crime.Latitude, crime.Longitude)
+			//		fmt.Println(distance, crime)
+			//		if distance < minDistance {
+			//			minDistance = distance
+			//			resCrime = crime
+			//		}
+			//	}
+			//	datee, _ := time.Parse(LayoutISO, resCrime.Date)
+			//	dat := datee.Format(LayoutISO)
+			//	if dat == Current && minDistance < 1 {
+			//		distStr := fmt.Sprintf("%f m", minDistance*1000)
+			//		b.Send(m.Sender, "Location: "+resCrime.LocationName+"\nDescription: "+resCrime.Description+"\nDistance: "+distStr)
+			//		photo := &tb.Photo{File: tb.FromDisk("images/" + resCrime.Image)}
+			//		b.Send(m.Sender, photo)
+			//	}
+			//}
 		}
 
 	}
@@ -200,7 +226,14 @@ func (ef *endpointsFactory) Input(b *tb.Bot) func(m *tb.Message) {
 
 	}
 }
+func (ef *endpointsFactory) BackMenu(b *tb.Bot) func(c *tb.Callback){
+	return func(c *tb.Callback) {
+		//b.EditReplyMarkup(c.Message,&tb.ReplyMarkup{})
+		b.Delete(c.Message)
 
+		b.Send(c.Sender,"Choose one",&tb.ReplyMarkup{ReplyKeyboard:ReplyKeys})
+	}
+}
 
 func (ef *endpointsFactory) GetRad1(b *tb.Bot) func(c *tb.Callback){
 	return func(c *tb.Callback) {
@@ -230,7 +263,7 @@ func (ef *endpointsFactory) GetRad4(b *tb.Bot) func(c *tb.Callback){
 	}
 }
 func GetCrime(ef *endpointsFactory,b *tb.Bot,m *tb.Callback, r float64,lat float64,lng float64) {
-	b.EditReplyMarkup(m.Message,&tb.ReplyMarkup{})
+	b.Delete(m.Message)
 	crimes, _ := ef.crimeEvents.GetAllCrimes()
 	minDistance := math.MaxFloat64
 	resCrime := crimes[0]
