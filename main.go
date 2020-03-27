@@ -135,17 +135,21 @@ func StartBot(d *cli.Context) error {
 	endpointsUser := t_bot.EndpointsFactoryUser(dbuser)
 
 
-	b.Handle("/start", endpoints.Hello(b))
+	b.Handle("/start", endpoints.Hello(b,endpointsUser))
 	b.Handle(&t_bot.ReplyBtn3, endpoints.Input(b))
 	b.Handle(&t_bot.HomeAdd, endpointsUser.AddHome(b, endpoints))
 	b.Handle(&t_bot.HomeMy, endpointsUser.GetHome(b))
 	b.Handle(&t_bot.HomeDel, endpointsUser.DeleteHome(b))
 	b.Handle(&t_bot.ReplyHome,endpoints.ListHomeKeys(b))
 	b.Handle(&t_bot.ComeBack,endpoints.BackMenu(b))
-	b.Handle(&t_bot.Rad1,endpoints.GetRad1(b))
-	b.Handle(&t_bot.Rad2,endpoints.GetRad2(b))
-	b.Handle(&t_bot.Rad3,endpoints.GetRad3(b))
-	b.Handle(&t_bot.Rad4,endpoints.GetRad4(b))
+	b.Handle(&t_bot.Rad1,endpoints.GetRad1(b,endpointsUser))
+	b.Handle(&t_bot.Rad2,endpoints.GetRad2(b,endpointsUser))
+	b.Handle(&t_bot.Rad3,endpoints.GetRad3(b,endpointsUser))
+	b.Handle(&t_bot.Rad4,endpoints.GetRad4(b,endpointsUser))
+	b.Handle(&t_bot.ReplyHist,endpoints.ToHistory(b,endpointsUser))
+	b.Handle(&t_bot.HistoryAll,endpoints.GetAllHistory(b))
+	b.Handle(&t_bot.HistoryClear,endpointsUser.ClearHistory(b))
+
 
 
 	b.Start()

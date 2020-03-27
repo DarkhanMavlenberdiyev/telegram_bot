@@ -58,7 +58,10 @@ func (p postgreStore) GetAllUser() ([]*Users, error) {
 	return users, nil
 }
 func (p postgreStore) UpdateUser(id int, user *Users) (*Users, error) {
-	panic("")
+	user.ID = id
+
+	err := p.db.Update(user)
+	return user, err
 }
 func (p postgreStore) DeleteUser(id int) error {
 	user := &Users{ID: id}

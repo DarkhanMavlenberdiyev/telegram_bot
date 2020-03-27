@@ -13,7 +13,7 @@ type UserInfo interface {
 	UpdateUser(id int, user *Users) (*Users, error)
 	DeleteUser(id int) error
 	GetAllUser() ([]*Users, error)
-	CreateUser(crime *Users) (*Users, error)
+	CreateUser(user *Users) (*Users, error)
 }
 
 type Users struct {
@@ -24,6 +24,8 @@ type Users struct {
 	Longitude float64 `json:"longitude"`
 	Latitude  float64 `json:"latitude"`
 	Image     string  `json:"image"`
+	History   string   `json:"history"`
+	IsHome     bool   `json:"is_home"`
 }
 
 type Crime struct {

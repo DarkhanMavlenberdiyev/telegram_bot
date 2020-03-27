@@ -7,6 +7,8 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -15,13 +17,21 @@ import (
 var (
 	current_time = time.Now().Local()
 	Current      = current_time.Format("2006-01-02")
-	HomeDel     = tb.InlineButton{Text: "Delete HOME Location",Unique:"h1"}
-	HomeMy   = tb.InlineButton{Text: "My HOME location",Unique:"h2"}
-	HomeAdd    = tb.InlineButton{Text: "Add HOME location",Unique:"h3"}
-	ComeBack = tb.InlineButton{Text:"Back",Unique:"h4"}
+	HomeDel     = tb.InlineButton{Text: "Delete location ✖️",Unique:"h1"}
+	HomeMy   = tb.InlineButton{Text: "My location 📍",Unique:"h2"}
+	HomeAdd    = tb.InlineButton{Text: "Add location ➕",Unique:"h3"}
+	ComeBack = tb.InlineButton{Text:"Back 🔙",Unique:"h4"}
+	
+	HistoryAll = tb.InlineButton{Text:"All stories",Unique:"hi1"}
+	HistoryClear = tb.InlineButton{Text:"Clear",Unique:"hi2"}
+	inlineHistoryKeys = [][]tb.InlineButton{
+		[]tb.InlineButton{HistoryAll,HistoryClear},
+		[]tb.InlineButton{ComeBack},
+	}
 
-	ReplyHome 	= tb.ReplyButton{Text:"Home location"}
-	ReplyBtn3    = tb.ReplyButton{Text: "Find crime 🔪",}
+	ReplyHome 	= tb.ReplyButton{Text:"Home location 🏠"}
+	ReplyBtn3    = tb.ReplyButton{Text: "Find crime 🔎",}
+	ReplyHist = tb.ReplyButton{Text:"Story 🗃️"}
 
 	homeKeys = [][]tb.InlineButton{
 		[]tb.InlineButton{HomeMy,HomeAdd},
@@ -31,6 +41,7 @@ var (
 
 	ReplyKeys    = [][]tb.ReplyButton{
 		[]tb.ReplyButton{ReplyHome, ReplyBtn3},
+		[]tb.ReplyButton{ReplyHist},		
 	}
 
 	Rad1 = tb.InlineButton{Text:"100 m",Unique:"m1"}
@@ -57,6 +68,7 @@ var (
 	radMarkup = &tb.ReplyMarkup{InlineKeyboard:      inlineKeys,}
 
 	LayoutISO = "2006-01-02"
+	crimeList = make([]*Crime,0)
 )
 
 type Endpoints interface {
@@ -79,14 +91,12 @@ func (ef *endpointsFactory) GetHome(b *tb.Bot) func(m *tb.Callback) {
 	return func(m *tb.Callback) {
 		res, err := ef.usersInfo.GetUser(m.Sender.ID)
 		if err != nil {
-			//b.Send(m.Sender, "Home location is not found")
-			b.Respond(m,&tb.CallbackResponse{
-				CallbackID: "",
-				Text:       "Home location is not found",
-				ShowAlert:  true,
-				URL:        "",
-			})
-		} else {
+			b.Respond(m,&tb.CallbackResponse{Text:"Please. Try again",ShowAlert:true,})
+		}
+		if res.IsHome==false {
+			b.Respond(m,&tb.CallbackResponse{Text:"Home location is not found",ShowAlert:true,})
+			return
+		}else {
 			long := fmt.Sprintf("%f", res.Longitude)
 			lat := fmt.Sprintf("%f", res.Latitude)
 			photo := &tb.Photo{File: tb.FromDisk(fmt.Sprintf("images/%f.jpg", m.Sender.ID))}
@@ -106,9 +116,25 @@ func (ef *endpointsFactory) ListHomeKeys(b *tb.Bot) func(m *tb.Message){
 
 func (ef *endpointsFactory) DeleteHome(b *tb.Bot) func(m *tb.Callback) {
 	return func(m *tb.Callback) {
-		err := ef.usersInfo.DeleteUser(m.Sender.ID)
-		if err != nil {
+		getUser,_ := ef.usersInfo.GetUser(m.Sender.ID)
+		if getUser.IsHome==false {
 			b.Respond(m, &tb.CallbackResponse{Text:"Home location is not exist",ShowAlert:true})
+			return
+		}
+		user := &Users{
+			ID:        m.Sender.ID,
+			FirstName: m.Sender.FirstName,
+			LastName:  m.Sender.LastName,
+			UserName:  m.Sender.Username,
+			Longitude: 0,
+			Latitude:  0,
+			Image:     "",
+			History:   getUser.History,
+			IsHome:    false,
+		}
+		_,err := ef.usersInfo.UpdateUser(m.Sender.ID,user)
+		if err != nil {
+			b.Respond(m, &tb.CallbackResponse{Text:"Can't delete home location. Try again!",ShowAlert:true})
 
 		} else {
 			b.Respond(m, &tb.CallbackResponse{Text:"Home location is successfully deleted",})
@@ -118,6 +144,12 @@ func (ef *endpointsFactory) DeleteHome(b *tb.Bot) func(m *tb.Callback) {
 
 func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb.Callback) {
 	return func(m *tb.Callback) {
+		getUser,_ := ef.usersInfo.GetUser(m.Sender.ID)
+		if getUser.IsHome==true {
+			b.Respond(m,&tb.CallbackResponse{Text:"Home Location is already exist ",ShowAlert:true})
+			return
+		}
+		
 		b.Send(m.Sender, "Send me your geolocation")
 		loc := make(chan *tb.Location)
 		b.Handle(tb.OnLocation, func(m *tb.Message) {
@@ -126,7 +158,7 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 
 		res := <-loc
 		fmt.Println(res)
-
+		
 		user := &Users{
 			ID:        m.Sender.ID,
 			FirstName: m.Sender.FirstName,
@@ -134,9 +166,11 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 			UserName:  m.Sender.Username,
 			Longitude: float64(res.Lng),
 			Latitude:  float64(res.Lat),
-			Image:     fmt.Sprintf("%f.jpg", m.Sender.ID),
+			Image:     fmt.Sprintf("%f.jpg",m.Sender.ID),
+			History:   getUser.History,
+			IsHome:    true,
 		}
-		_, err := ef.usersInfo.CreateUser(user)
+		_, erro := ef.usersInfo.UpdateUser(m.Sender.ID,user)
 		resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=15&l=map&pt=%f,%f,home", res.Lng, res.Lat, res.Lng, res.Lat))
 		if err != nil {
 			fmt.Println(err)
@@ -148,10 +182,9 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 		}
 		io.Copy(out, resp.Body)
 		defer out.Close()
-		if err != nil {
+		if erro != nil {
 			fmt.Println(err)
-			//b.Send(m.Sender, "Home Location is already exist")
-			b.Respond(m,&tb.CallbackResponse{Text:"Home Location is already exist ",ShowAlert:true})
+			b.Respond(m,&tb.CallbackResponse{Text:"Can't add home location. Try again!",ShowAlert:true})
 		} else {
 			//b.Send(m.Sender, "Home location is added")
 			b.Respond(m,&tb.CallbackResponse{Text:"Home location is added"})
@@ -183,13 +216,27 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 	}
 }
 
-func (ef *endpointsFactory) Hello(b *tb.Bot) func(m *tb.Message) {
+func (ef *endpointsFactory) Hello(b *tb.Bot,endUser *endpointsFactory) func(m *tb.Message) {
 	return func(m *tb.Message) {
+		getUser, _ := endUser.usersInfo.GetUser(m.Sender.ID)
 		photo := &tb.Photo{File: tb.FromDisk("images/crime.jpg")}
 		b.Send(m.Sender, "Hi, "+m.Sender.FirstName+". Welcome to Crime bot.\nChoose to continue", &tb.ReplyMarkup{
 			ReplyKeyboard: ReplyKeys,
 		})
 		b.Send(m.Sender, photo)
+		user := &Users{
+			ID:        m.Sender.ID,
+			FirstName: m.Sender.FirstName,
+			LastName:  m.Sender.LastName,
+			UserName:  m.Sender.Username,
+			Longitude: getUser.Longitude,
+			Latitude:  getUser.Latitude,
+			Image:     getUser.Image,
+			History:   getUser.History,
+			IsHome:    getUser.IsHome,
+		}
+		fmt.Print(user)
+		endUser.usersInfo.CreateUser(user)
 
 	}
 }
@@ -210,6 +257,7 @@ func (ef *endpointsFactory) Input(b *tb.Bot) func(m *tb.Message) {
 			InlineKeyboard: nil,
 			ReplyKeyboard:  ReplyKeys2,
 		})
+
 		loc := make(chan *tb.Location)
 
 		b.Handle(tb.OnLocation, func(ms *tb.Message) {
@@ -235,7 +283,7 @@ func (ef *endpointsFactory) BackMenu(b *tb.Bot) func(c *tb.Callback){
 	}
 }
 
-func (ef *endpointsFactory) GetRad1(b *tb.Bot) func(c *tb.Callback){
+func (ef *endpointsFactory) GetRad1(b *tb.Bot,endUser *endpointsFactory) func(c *tb.Callback){
 	return func(c *tb.Callback) {
 		b.Respond(c,&tb.CallbackResponse{
 			CallbackID:c.ID,
@@ -244,25 +292,25 @@ func (ef *endpointsFactory) GetRad1(b *tb.Bot) func(c *tb.Callback){
 			URL:        "",
 		})
 
-		GetCrime(ef,b,c,100.0,LocLat,LocLng)
+		GetCrime(ef,b,c,100.0,LocLat,LocLng,endUser)
 	}
 }
-func (ef *endpointsFactory) GetRad2(b *tb.Bot) func(c *tb.Callback){
+func (ef *endpointsFactory) GetRad2(b *tb.Bot,endUser *endpointsFactory) func(c *tb.Callback){
 	return func(c *tb.Callback) {
-		GetCrime(ef,b,c,500.0,LocLat,LocLng)
+		GetCrime(ef,b,c,500.0,LocLat,LocLng,endUser)
 	}
 }
-func (ef *endpointsFactory) GetRad3(b *tb.Bot) func(c *tb.Callback){
+func (ef *endpointsFactory) GetRad3(b *tb.Bot,endUser *endpointsFactory) func(c *tb.Callback){
 	return func(c *tb.Callback) {
-		GetCrime(ef,b,c,1000.0,LocLat,LocLng)
+		GetCrime(ef,b,c,1000.0,LocLat,LocLng,endUser)
 	}
 }
-func (ef *endpointsFactory) GetRad4(b *tb.Bot) func(c *tb.Callback){
+func (ef *endpointsFactory) GetRad4(b *tb.Bot,endUser *endpointsFactory) func(c *tb.Callback){
 	return func(c *tb.Callback) {
-		GetCrime(ef,b,c,2000.0,LocLat,LocLng)
+		GetCrime(ef,b,c,2000.0,LocLat,LocLng,endUser)
 	}
 }
-func GetCrime(ef *endpointsFactory,b *tb.Bot,m *tb.Callback, r float64,lat float64,lng float64) {
+func GetCrime(ef *endpointsFactory,b *tb.Bot,m *tb.Callback, r float64,lat float64,lng float64,endUser *endpointsFactory) {
 	b.Delete(m.Message)
 	crimes, _ := ef.crimeEvents.GetAllCrimes()
 	minDistance := math.MaxFloat64
@@ -294,6 +342,29 @@ func GetCrime(ef *endpointsFactory,b *tb.Bot,m *tb.Callback, r float64,lat float
 		photo := &tb.Photo{File: tb.FromDisk("images/curr.jpg")}
 		b.Send(m.Sender, "Location: "+resCrime.LocationName+"\n"+"Description: "+resCrime.Description+"\nDistance: "+fmt.Sprintf("%f m", minDistance*1000))
 		b.Send(m.Sender, photo)
+		hist,_ := endUser.usersInfo.GetUser(m.Sender.ID)
+		updHist := ""
+		if len(hist.History)==0{
+			updHist = hist.History+" "+strconv.Itoa(resCrime.ID)
+		}else{
+			updHist = strconv.Itoa(resCrime.ID)
+		}
+		updUser := &Users{
+			ID:        m.Sender.ID,
+			FirstName: m.Sender.FirstName,
+			LastName:  m.Sender.LastName,
+			UserName:  m.Sender.Username,
+			Longitude: hist.Longitude,
+			Latitude:  hist.Latitude,
+			Image:     hist.Image,
+			History:   updHist,
+			IsHome:    hist.IsHome,
+		}
+		fmt.Println(updUser)
+		_,errr := endUser.usersInfo.UpdateUser(m.Sender.ID,updUser)
+		if errr!=nil{
+			fmt.Println(errr.Error())
+		}
 	} else {
 		b.Send(m.Sender, "There are no crime events in your radius today")
 	}
@@ -313,4 +384,64 @@ func DistanceBetweenTwoLongLat(lat1 float64, long1 float64, lat2 float64, long2 
 	d := math.Acos(math.Sin(lat1)*math.Sin(lat2)+math.Cos(lat1)*math.Cos(lat2)*math.Cos(dlon)) * r
 	return d
 }
+
+func (ef *endpointsFactory) ToHistory(b *tb.Bot,endUsers *endpointsFactory) func(m *tb.Message) {
+	return func(m *tb.Message) {
+		crimeList = nil
+		b.Send(m.Sender,">>",&tb.ReplyMarkup{InlineKeyboard:inlineHistoryKeys})
+		getUser,_ := endUsers.usersInfo.GetUser(m.Sender.ID)
+		lis := strings.Split(getUser.History," ")
+
+		for _,c := range lis{
+			toInt,err:= strconv.Atoi(c)
+			if err==nil{
+				crime,_ := ef.crimeEvents.GetCrime(toInt)
+				crimeList = append(crimeList,crime)
+			}
+		}
+	}
+}
+
+
+func (ef *endpointsFactory) GetAllHistory(b *tb.Bot) func (c *tb.Callback){
+	return func(c *tb.Callback) {
+		if len(crimeList)==0 {
+			b.Respond(c,&tb.CallbackResponse{Text:"The story is empty"})
+		}else{
+			res := ""
+			for i,c := range crimeList {
+				res += fmt.Sprintf("%v) Location: %v; Longitude: %v; Latitude: %v; Description: %v; Date: %v\n",i+1,c.LocationName,c.Longitude,c.Latitude,c.Description,c.Date)
+			}
+			fmt.Println(res,crimeList)
+			b.Edit(c.Message,res)
+			b.EditReplyMarkup(c.Message,&tb.ReplyMarkup{InlineKeyboard:inlineHistoryKeys})
+		}
+	}
+}
+func (ef *endpointsFactory) ClearHistory(b *tb.Bot) func(c *tb.Callback){
+	return func(c *tb.Callback) {
+		user,err := ef.usersInfo.GetUser(c.Sender.ID)
+		if err==nil{
+			updUser := &Users{
+				ID:        user.ID,
+				FirstName: user.FirstName,
+				LastName:  user.LastName,
+				UserName:  user.UserName,
+				Longitude: user.Longitude,
+				Latitude:  user.Latitude,
+				Image:     user.Image,
+				History:   "",
+				IsHome:    user.IsHome,
+			}
+			crimeList = nil
+			_,err := ef.usersInfo.UpdateUser(user.ID,updUser)
+			if err==nil {
+				b.Respond(c,&tb.CallbackResponse{Text:"The story has been cleared",})
+				b.Edit(c.Message,">>")
+				b.EditReplyMarkup(c.Message,&tb.ReplyMarkup{InlineKeyboard:inlineHistoryKeys})
+			}
+		}
+	}
+}
+
 
