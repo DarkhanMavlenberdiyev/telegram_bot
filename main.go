@@ -6,14 +6,9 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-
-	//"io"
 	"log"
-	//"net/http"
 	"os"
-	//"strconv"
 	"time"
-
 	"./t_bot"
 	"github.com/urfave/cli"
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -94,6 +89,7 @@ func StartBot(d *cli.Context) error {
 		forever := make(chan bool)
 
 		go func() {
+
 			for d := range msgs {
 				log.Printf("Received a message: %s", d.Body)
 				conv, _ := strconv.Atoi(string(d.Body))
@@ -117,8 +113,7 @@ func StartBot(d *cli.Context) error {
 						defer out.Close()
 						sendUser := &tb.User{ID: u.ID}
 						distanceString := fmt.Sprintf("%f m", distance)
-						b.Send(sendUser, "Location: "+crime.LocationName+"\nDescription: "+crime.Description+"\nDeistance: "+distanceString)
-						photo := &tb.Photo{File: tb.FromDisk("filename.png")}
+						photo := &tb.Photo{File: tb.FromDisk("filename.png"),Caption:"Location: "+crime.LocationName+"\nDescription: "+crime.Description+"\nDeistance: "+distanceString}
 						b.Send(sendUser, photo)
 					}
 
@@ -151,7 +146,7 @@ func StartBot(d *cli.Context) error {
 	b.Handle(&t_bot.ReplyHist,endpoints.ToHistory(b,endpointsUser))
 	b.Handle(&t_bot.HistoryAll,endpoints.GetAllHistory(b))
 	b.Handle(&t_bot.HistoryClear,endpointsUser.ClearHistory(b))
-
+	b.Handle(tb.OnText,endpoints.Help(b))
 
 
 	b.Start()

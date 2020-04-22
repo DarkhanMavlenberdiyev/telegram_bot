@@ -33,53 +33,58 @@ func (ef *endpointsFactory) GetCrimeCurl(idParam string) func(w http.ResponseWri
 		vars := mux.Vars(r)
 		id, ok := vars[idParam]
 		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Crime ID not found "))
+			writeResponse(w,http.StatusBadRequest,[]byte("Crime ID not found"))
 			return
 		}
 		idd, _ := strconv.Atoi(id)
 		res, err := ef.crimeEvents.GetCrime(idd)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Sorry:( : " + err.Error()))
+			writeResponse(w,http.StatusInternalServerError,[]byte("Error: "+err.Error()))
 			return
 		}
 		data, err := json.Marshal(res)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Error: " + err.Error()))
+			writeResponse(w,http.StatusInternalServerError,[]byte("Error: "+err.Error()))
 			return
 		}
-		w.Write(data)
-		w.WriteHeader(http.StatusOK)
+		writeResponse(w,http.StatusOK,data)
 	}
+}
+
+type Street struct {
+	City string `json:"city"`
+	Staddress string `json:"staddress"`
+
 }
 func (ef *endpointsFactory) CreateCrimeCurl() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Error: " + err.Error()))
+			writeResponse(w,http.StatusInternalServerError,[]byte("Error: "+err.Error()))
 			return
 		}
 		crime := &Crime{}
-
 		if err := json.Unmarshal(data, crime); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Error: " + err.Error()))
+			writeResponse(w,http.StatusBadRequest,[]byte("Error: "+err.Error()))
 			return
 		}
+
+		getStreet,_ := http.Get(fmt.Sprintf(fmt.Sprintf("https://geocode.xyz/%v,%v?geoit=json&lang=en",crime.Latitude,crime.Longitude)))
+		//fmt.Println(getStreet)
+		stdata, _ := ioutil.ReadAll(getStreet.Body)
+		street := &Street{}
+		json.Unmarshal(stdata,street)
+		//fmt.Println(street,stdata)
+		crime.LocationName = fmt.Sprintf("City: %v; Street: %v",street.City,street.Staddress)
 		createMap(crime.Image, crime.Longitude, crime.Latitude)
 		result, err := ef.crimeEvents.CreateCrime(crime)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Error: " + err.Error()))
+			writeResponse(w,http.StatusInternalServerError,[]byte("Error: "+err.Error()))
 			return
 		}
 		response, err := json.Marshal(result)
 		if err != nil {
-			w.Write([]byte("Error: " + err.Error()))
-			w.WriteHeader(http.StatusInternalServerError)
+			writeResponse(w,http.StatusInternalServerError,[]byte("Error: "+err.Error()))
 			return
 		}
 		conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
@@ -112,8 +117,7 @@ func (ef *endpointsFactory) CreateCrimeCurl() func(w http.ResponseWriter, r *htt
 			msg)
 		failOnError(err, "Failed to publish a message")
 
-		w.Write(response)
-		w.WriteHeader(http.StatusCreated)
+		writeResponse(w,http.StatusCreated,response)
 
 	}
 }
@@ -138,38 +142,32 @@ func (ef *endpointsFactory) UpdateCrimeCurl(idParam string) func(w http.Response
 		vars := mux.Vars(r)
 		id, ok := vars[idParam]
 		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Crime ID not found "))
+			writeResponse(w,http.StatusBadRequest,[]byte("Crime ID not found"))
 			return
 		}
 		data, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Error: " + err.Error()))
+			writeResponse(w,http.StatusInternalServerError,[]byte("Error: "+err.Error()))
 			return
 		}
-
 		crime := &Crime{}
 		if err := json.Unmarshal(data, crime); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Error: " + err.Error()))
+			writeResponse(w,http.StatusBadRequest,[]byte("Error: "+err.Error()))
 			return
 		}
 		idd, _ := strconv.Atoi(id)
 		res, err := ef.crimeEvents.UpdateCrime(idd, crime)
 		if err != nil {
-			w.Write([]byte("Error: " + err.Error()))
-			w.WriteHeader(http.StatusBadRequest)
+			writeResponse(w,http.StatusBadRequest,[]byte("Error: "+err.Error()))
 			return
 		}
 		response, err := json.Marshal(res)
 		if err != nil {
-			w.Write([]byte("Error: " + err.Error()))
-			w.WriteHeader(http.StatusInternalServerError)
+			writeResponse(w,http.StatusInternalServerError,[]byte("Error: "+err.Error()))
 			return
 		}
-		w.Write(response)
-		w.WriteHeader(http.StatusCreated)
+		writeResponse(w,http.StatusCreated,response)
+
 	}
 }
 func (ef *endpointsFactory) DeleteCrimeCurl(idParam string) func(w http.ResponseWriter, r *http.Request) {
@@ -177,21 +175,22 @@ func (ef *endpointsFactory) DeleteCrimeCurl(idParam string) func(w http.Response
 		vars := mux.Vars(r)
 		id, ok := vars[idParam]
 		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Error: Not Found"))
+			writeResponse(w,http.StatusBadRequest,[]byte("Error: Not Found"))
 			return
 		}
 		idd, _ := strconv.Atoi(id)
 		err := ef.crimeEvents.DeleteCrime(idd)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Error" + err.Error()))
+			writeResponse(w,http.StatusInternalServerError,[]byte("Error: "+err.Error()))
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Crime is deleted successfully"))
+		writeResponse(w,http.StatusOK,[]byte("Crime is deleted successfully"))
 
 	}
+}
+func writeResponse(w http.ResponseWriter,status int,msg []byte) {
+	w.WriteHeader(status)
+	w.Write(msg)
 }
 func failOnError(err error, msg string) {
 	if err != nil {

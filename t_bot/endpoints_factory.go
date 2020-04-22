@@ -65,6 +65,7 @@ var (
 	Rad3 = tb.InlineButton{Text:"1000 m",Unique:"m3"}
 	Rad4 = tb.InlineButton{Text:"2000 m",Unique:"m4"}
 
+
 	LocLat = 0.0
 	LocLng = 0.0
 
@@ -73,9 +74,8 @@ var (
 		Text:     "My location 🌍",
 		Location: true,
 	}
-	KeyButSend = tb.ReplyButton{Text:"Send location by map"}
 	ReplyKeys2 = [][]tb.ReplyButton{
-		{KeyBut,KeyButSend},
+		{KeyBut,},
 	}
 
 	inlineKeys = [][]tb.InlineButton{
@@ -249,25 +249,30 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 
 	}
 }
+
 func (ef *endpointsFactory) HomeCheck(b *tb.Bot,end *endpointsFactory) func(c *tb.Callback){
 	return func(c *tb.Callback) {
 		crimes, _ := end.crimeEvents.GetAllCrimes()
 		user, _ := ef.usersInfo.GetUser(c.Sender.ID)
-
+		//fmt.Println(crimes)
 		if len(crimes)>=0{
 			minDistance := math.MaxFloat64
 			resCrime := crimes[0]
 
 			for _, crime := range crimes {
+				fmt.Println(crime.Date,Current)
+				datee, _ := time.Parse(LayoutISO, crime.Date)
+				dat := datee.Format(LayoutISO)
 				distance := DistanceBetweenTwoLongLat(user.Latitude,user.Longitude, crime.Latitude, crime.Longitude)
-				if distance < minDistance {
+				if distance < minDistance && dat==Current  {
 					minDistance = distance
 					resCrime = crime
 				}
 			}
 			datee, _ := time.Parse(LayoutISO, resCrime.Date)
 			dat := datee.Format(LayoutISO)
-			if dat == Current && minDistance < 1 {
+			fmt.Println(dat)
+			if dat == Current {
 				resp,err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=14&l=map&pt=%f,%f,home~%f,%f,flag", user.Longitude, user.Latitude, user.Longitude, user.Latitude, resCrime.Longitude, resCrime.Latitude))
 				if err != nil {
 					fmt.Println(err)
@@ -321,9 +326,7 @@ func (ef *endpointsFactory) Input(b *tb.Bot) func(m *tb.Message) {
 }
 func (ef *endpointsFactory) BackMenu(b *tb.Bot) func(c *tb.Callback){
 	return func(c *tb.Callback) {
-		//b.EditReplyMarkup(c.Message,&tb.ReplyMarkup{})
 		b.Delete(c.Message)
-
 		b.Send(c.Sender,"Choose one",&tb.ReplyMarkup{ReplyKeyboard:ReplyKeys})
 	}
 }
@@ -336,25 +339,28 @@ func (ef *endpointsFactory) GetRad1(b *tb.Bot,endUser *endpointsFactory) func(c 
 			ShowAlert:  false,
 			URL:        "",
 		})
-
 		GetCrime(ef,b,c,100.0,LocLat,LocLng,endUser)
 	}
 }
+
 func (ef *endpointsFactory) GetRad2(b *tb.Bot,endUser *endpointsFactory) func(c *tb.Callback){
 	return func(c *tb.Callback) {
 		GetCrime(ef,b,c,500.0,LocLat,LocLng,endUser)
 	}
 }
+
 func (ef *endpointsFactory) GetRad3(b *tb.Bot,endUser *endpointsFactory) func(c *tb.Callback){
 	return func(c *tb.Callback) {
 		GetCrime(ef,b,c,1000.0,LocLat,LocLng,endUser)
 	}
 }
+
 func (ef *endpointsFactory) GetRad4(b *tb.Bot,endUser *endpointsFactory) func(c *tb.Callback){
 	return func(c *tb.Callback) {
 		GetCrime(ef,b,c,2000.0,LocLat,LocLng,endUser)
 	}
 }
+
 func GetCrime(ef *endpointsFactory,b *tb.Bot,m *tb.Callback, r float64,lat float64,lng float64,endUser *endpointsFactory) {
 	b.Delete(m.Message)
 	crimes, _ := ef.crimeEvents.GetAllCrimes()
