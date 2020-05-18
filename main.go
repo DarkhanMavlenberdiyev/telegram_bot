@@ -1,19 +1,18 @@
 package main
 
 import (
+	"./t_bot"
 	"fmt"
 	"github.com/streadway/amqp"
-	"io"
-	"net/http"
-	"strconv"
-	"log"
-	"os"
-	"time"
-	"./t_bot"
 	"github.com/urfave/cli"
 	tb "gopkg.in/tucnak/telebot.v2"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
 )
-
 
 func main() {
 
@@ -54,7 +53,6 @@ func StartBot(d *cli.Context) error {
 	db := t_bot.NewPostgreBot(user)
 	dbuser := t_bot.PostgreUser(user)
 	users, _ := dbuser.GetAllUser()
-
 
 	go func() {
 		conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
@@ -113,7 +111,7 @@ func StartBot(d *cli.Context) error {
 						defer out.Close()
 						sendUser := &tb.User{ID: u.ID}
 						distanceString := fmt.Sprintf("%f m", distance)
-						photo := &tb.Photo{File: tb.FromDisk("filename.png"),Caption:"Location: "+crime.LocationName+"\nDescription: "+crime.Description+"\nDeistance: "+distanceString}
+						photo := &tb.Photo{File: tb.FromDisk("filename.png"), Caption: "Location: " + crime.LocationName + "\nDescription: " + crime.Description + "\nDeistance: " + distanceString}
 						b.Send(sendUser, photo)
 					}
 
@@ -129,25 +127,23 @@ func StartBot(d *cli.Context) error {
 
 	endpointsUser := t_bot.EndpointsFactoryUser(dbuser)
 
-
-	b.Handle("/start", endpoints.Hello(b,endpointsUser))
+	b.Handle("/start", endpoints.Hello(b, endpointsUser))
 	b.Handle(&t_bot.ReplyBtn3, endpoints.Input(b))
 	b.Handle(&t_bot.HomeAdd, endpointsUser.AddHome(b, endpoints))
 	b.Handle(&t_bot.HomeMy, endpointsUser.GetHome(b))
 	b.Handle(&t_bot.HomeDel, endpointsUser.DeleteHome(b))
-	b.Handle(&t_bot.CheckHome,endpointsUser.HomeCheck(b,endpoints))
-	b.Handle(&t_bot.ReplyHome,endpoints.ListHomeKeys(b))
-	b.Handle(&t_bot.ReplyHelp,endpoints.Help(b))
-	b.Handle(&t_bot.ComeBack,endpoints.BackMenu(b))
-	b.Handle(&t_bot.Rad1,endpoints.GetRad1(b,endpointsUser))
-	b.Handle(&t_bot.Rad2,endpoints.GetRad2(b,endpointsUser))
-	b.Handle(&t_bot.Rad3,endpoints.GetRad3(b,endpointsUser))
-	b.Handle(&t_bot.Rad4,endpoints.GetRad4(b,endpointsUser))
-	b.Handle(&t_bot.ReplyHist,endpoints.ToHistory(b,endpointsUser))
-	b.Handle(&t_bot.HistoryAll,endpoints.GetAllHistory(b))
-	b.Handle(&t_bot.HistoryClear,endpointsUser.ClearHistory(b))
-	b.Handle(tb.OnText,endpoints.Help(b))
-
+	b.Handle(&t_bot.CheckHome, endpointsUser.HomeCheck(b, endpoints))
+	b.Handle(&t_bot.ReplyHome, endpoints.ListHomeKeys(b))
+	b.Handle(&t_bot.ReplyHelp, endpoints.Help(b))
+	b.Handle(&t_bot.ComeBack, endpoints.BackMenu(b))
+	b.Handle(&t_bot.Rad1, endpoints.GetRad1(b, endpointsUser))
+	b.Handle(&t_bot.Rad2, endpoints.GetRad2(b, endpointsUser))
+	b.Handle(&t_bot.Rad3, endpoints.GetRad3(b, endpointsUser))
+	b.Handle(&t_bot.Rad4, endpoints.GetRad4(b, endpointsUser))
+	b.Handle(&t_bot.ReplyHist, endpoints.ToHistory(b, endpointsUser))
+	b.Handle(&t_bot.HistoryAll, endpoints.GetAllHistory(b))
+	b.Handle(&t_bot.HistoryClear, endpointsUser.ClearHistory(b))
+	b.Handle(tb.OnText, endpoints.Help(b))
 
 	b.Start()
 	return nil

@@ -24,8 +24,8 @@ type Users struct {
 	Longitude float64 `json:"longitude"`
 	Latitude  float64 `json:"latitude"`
 	Image     string  `json:"image"`
-	History   string   `json:"history"`
-	IsHome     bool   `json:"is_home"`
+	History   string  `json:"history"`
+	IsHome    bool    `json:"is_home"`
 }
 
 type Crime struct {
