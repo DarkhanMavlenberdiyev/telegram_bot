@@ -22,7 +22,7 @@ func NewPostgreBot(config PostgreConfig) CrimeEvents {
 		Addr:     config.Host + ":" + config.Port,
 		User:     config.User,
 		Password: config.Password,
-		Database: "Crime",
+		Database: "postgres",
 	})
 	return &postgreStore{db: db}
 }
@@ -32,7 +32,7 @@ func PostgreUser(config PostgreConfig) UserInfo {
 		Addr:     config.Host + ":" + config.Port,
 		User:     config.User,
 		Password: config.Password,
-		Database: "Crime",
+		Database: "postgres",
 	})
 
 	return &postgreStore{db: db}

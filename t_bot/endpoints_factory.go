@@ -1,7 +1,9 @@
 package t_bot
 
 import (
+	"context"
 	"fmt"
+	"github.com/gospodinzerkalo/crime_city_api/pb"
 	"io"
 	"math"
 	"net/http"
@@ -89,16 +91,19 @@ type Endpoints interface {
 	GetCrime() func(m *tb.Message)
 }
 
-func NewEndpointsFactory(crimeEvent CrimeEvents) *endpointsFactory {
-	return &endpointsFactory{crimeEvents: crimeEvent}
+func NewEndpointsFactory(crimeEvent CrimeEvents, crimeService pb.CrimeServiceClient, ctx context.Context) *endpointsFactory {
+	return &endpointsFactory{crimeEvents: crimeEvent, crimeService: crimeService, ctx: ctx}
 }
-func EndpointsFactoryUser(userInfo UserInfo) *endpointsFactory {
-	return &endpointsFactory{usersInfo: userInfo}
+func EndpointsFactoryUser(userInfo UserInfo, crimeService pb.CrimeServiceClient, ctx context.Context) *endpointsFactory {
+	return &endpointsFactory{usersInfo: userInfo, crimeService: crimeService, ctx: ctx}
 }
 
 type endpointsFactory struct {
 	crimeEvents CrimeEvents
 	usersInfo   UserInfo
+
+	crimeService 	pb.CrimeServiceClient
+	ctx 			context.Context
 }
 
 func (ef *endpointsFactory) Start(b *tb.Bot) func(m *tb.Message) {
@@ -114,27 +119,11 @@ func (ef *endpointsFactory) Start(b *tb.Bot) func(m *tb.Message) {
 
 func (ef *endpointsFactory) Hello(b *tb.Bot, endUser *endpointsFactory) func(m *tb.Message) {
 	return func(m *tb.Message) {
-
-		getUser, _ := endUser.usersInfo.GetUser(m.Sender.ID)
 		photo := &tb.Photo{File: tb.FromDisk("images/crime.jpg"), Caption: "Hi, " + m.Sender.FirstName + ". Welcome to Crime bot.\nChoose to continue"}
 		b.Send(m.Sender, ">>", &tb.ReplyMarkup{
 			ReplyKeyboard: ReplyKeys,
 		})
 		b.Send(m.Sender, photo)
-		user := &Users{
-			ID:        m.Sender.ID,
-			FirstName: m.Sender.FirstName,
-			LastName:  m.Sender.LastName,
-			UserName:  m.Sender.Username,
-			Longitude: getUser.Longitude,
-			Latitude:  getUser.Latitude,
-			Image:     getUser.Image,
-			History:   getUser.History,
-			IsHome:    getUser.IsHome,
-		}
-		fmt.Print(user)
-		endUser.usersInfo.CreateUser(user)
-
 	}
 }
 
@@ -194,9 +183,14 @@ func (ef *endpointsFactory) DeleteHome(b *tb.Bot) func(m *tb.Callback) {
 
 func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb.Callback) {
 	return func(m *tb.Callback) {
-		getUser, _ := ef.usersInfo.GetUser(m.Sender.ID)
-		if getUser.IsHome == true {
-			b.Respond(m, &tb.CallbackResponse{Text: "Home Location is already exist ", ShowAlert: true})
+		getUser, err := ef.crimeService.GetHome(ef.ctx, &pb.GetHomeRequest{Id: int64(m.Sender.ID)})
+		//if err != nil {
+		//	fmt.Println(err)
+		//	b.Respond(m, &tb.CallbackResponse{Text: "Some error, try again... ", ShowAlert: true})
+		//	return
+		//}
+		if getUser != nil {
+			b.Respond(m, &tb.CallbackResponse{Text: "Home location is already exists... ", ShowAlert: true})
 			return
 		}
 
@@ -209,18 +203,16 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 		res := <-loc
 		fmt.Println(res)
 
-		user := &Users{
-			ID:        m.Sender.ID,
+		user := &pb.Home{
+			Id:        int64(m.Sender.ID),
 			FirstName: m.Sender.FirstName,
 			LastName:  m.Sender.LastName,
 			UserName:  m.Sender.Username,
 			Longitude: float64(res.Lng),
 			Latitude:  float64(res.Lat),
 			Image:     fmt.Sprintf("images/%f.jpg", m.Sender.ID),
-			History:   getUser.History,
-			IsHome:    true,
 		}
-		_, erro := ef.usersInfo.UpdateUser(m.Sender.ID, user)
+		_, erro := ef.crimeService.CreateHome(ef.ctx, &pb.CreateHomeRequest{Home: user})
 		resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=15&l=map&pt=%f,%f,home", res.Lng, res.Lat, res.Lng, res.Lat))
 		if err != nil {
 			fmt.Println(err)

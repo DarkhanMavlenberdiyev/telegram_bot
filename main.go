@@ -1,17 +1,20 @@
 package main
 
 import (
-	"./t_bot"
+	"context"
 	"fmt"
-	"github.com/streadway/amqp"
-	"github.com/urfave/cli"
+	"github.com/gospodinzerkalo/crime_city_api/pb"
+	"github.com/gospodinzerkalo/crime_city_telegram_bot-Golang-/t_bot"
+	"github.com/urfave/cli/v2"
+	"google.golang.org/grpc"
 	tb "gopkg.in/tucnak/telebot.v2"
-	"io"
 	"log"
-	"net/http"
 	"os"
-	"strconv"
 	"time"
+)
+
+const (
+	address     = "localhost:50051"
 )
 
 func main() {
@@ -31,7 +34,7 @@ func main() {
 
 func StartBot(d *cli.Context) error {
 	b, err := tb.NewBot(tb.Settings{
-		Token:  "1065088890:AAHsp6mSFeTC0mf3sZ5WEi8ODL4ZfxHi1cg",
+		Token:  "",
 		URL:    "",
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 	})
@@ -44,88 +47,100 @@ func StartBot(d *cli.Context) error {
 	// geocoder := opencagedata.NewGeocoder("cece8bb38d4a4128a1d97760945dea6c")
 
 	user := t_bot.PostgreConfig{
-		User:     "darkhan",
-		Password: "sheha2003",
+		User:     "postgres",
+		Password: "pass",
 		Port:     "5432", //5432
-		Host:     "127.0.0.1",
+		Host:     "localhost",
 	}
 
 	db := t_bot.NewPostgreBot(user)
 	dbuser := t_bot.PostgreUser(user)
-	users, _ := dbuser.GetAllUser()
+	//users, _ := dbuser.GetAllUser()
 
-	go func() {
-		conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-		failOnError(err, "Failed to connect to RabbitMQ")
-		defer conn.Close()
+	//go func() {
+	//	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	//	failOnError(err, "Failed to connect to RabbitMQ")
+	//	defer conn.Close()
+	//
+	//	ch, err := conn.Channel()
+	//	failOnError(err, "Failed to open a channel")
+	//	defer ch.Close()
+	//
+	//	q, err := ch.QueueDeclare(
+	//		"Crime", // name
+	//		true,    // durable
+	//		false,   // delete when unused
+	//		false,   // exclusive
+	//		false,   // no-wait
+	//		nil,     // arguments
+	//	)
+	//	failOnError(err, "Failed to declare a queue")
+	//
+	//	msgs, err := ch.Consume(
+	//		q.Name, // queue
+	//		"",     // consumer
+	//		true,   // auto-ack
+	//		false,  // exclusive
+	//		false,  // no-local
+	//		false,  // no-wait
+	//		nil,    // args
+	//	)
+	//	failOnError(err, "Failed to register a consumer")
+	//
+	//	forever := make(chan bool)
+	//
+	//	go func() {
+	//
+	//		for d := range msgs {
+	//			log.Printf("Received a message: %s", d.Body)
+	//			conv, _ := strconv.Atoi(string(d.Body))
+	//			crime, _ := db.GetCrime(conv)
+	//			fmt.Println(crime)
+	//			for _, u := range users {
+	//				distance := t_bot.DistanceBetweenTwoLongLat(crime.Latitude, crime.Longitude, u.Latitude, u.Longitude) * 1000
+	//				datee, _ := time.Parse(t_bot.LayoutISO, crime.Date)
+	//				dat := datee.Format("2006-01-02")
+	//				if distance < 2000.0 && t_bot.Current == dat {
+	//					resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=15&l=map&pt=%f,%f,home~%f,%f,flag", u.Longitude, u.Latitude, u.Longitude, u.Latitude, crime.Longitude, crime.Latitude))
+	//					if err != nil {
+	//						fmt.Println(err)
+	//					}
+	//					defer resp.Body.Close()
+	//					out, err := os.Create("filename.png")
+	//					if err != nil {
+	//						fmt.Println(err)
+	//					}
+	//					io.Copy(out, resp.Body)
+	//					defer out.Close()
+	//					sendUser := &tb.User{ID: u.ID}
+	//					distanceString := fmt.Sprintf("%f m", distance)
+	//					photo := &tb.Photo{File: tb.FromDisk("filename.png"), Caption: "Location: " + crime.LocationName + "\nDescription: " + crime.Description + "\nDeistance: " + distanceString}
+	//					b.Send(sendUser, photo)
+	//				}
+	//
+	//			}
+	//		}
+	//	}()
+	//
+	//	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	//	<-forever
+	//}()
 
-		ch, err := conn.Channel()
-		failOnError(err, "Failed to open a channel")
-		defer ch.Close()
+	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	defer conn.Close()
+	c := pb.NewCrimeServiceClient(conn)
 
-		q, err := ch.QueueDeclare(
-			"Crime", // name
-			true,    // durable
-			false,   // delete when unused
-			false,   // exclusive
-			false,   // no-wait
-			nil,     // arguments
-		)
-		failOnError(err, "Failed to declare a queue")
+	// Contact the server and print out its response.
 
-		msgs, err := ch.Consume(
-			q.Name, // queue
-			"",     // consumer
-			true,   // auto-ack
-			false,  // exclusive
-			false,  // no-local
-			false,  // no-wait
-			nil,    // args
-		)
-		failOnError(err, "Failed to register a consumer")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 
-		forever := make(chan bool)
+	endpoints := t_bot.NewEndpointsFactory(db, c, ctx)
 
-		go func() {
-
-			for d := range msgs {
-				log.Printf("Received a message: %s", d.Body)
-				conv, _ := strconv.Atoi(string(d.Body))
-				crime, _ := db.GetCrime(conv)
-				fmt.Println(crime)
-				for _, u := range users {
-					distance := t_bot.DistanceBetweenTwoLongLat(crime.Latitude, crime.Longitude, u.Latitude, u.Longitude) * 1000
-					datee, _ := time.Parse(t_bot.LayoutISO, crime.Date)
-					dat := datee.Format("2006-01-02")
-					if distance < 2000.0 && t_bot.Current == dat {
-						resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=15&l=map&pt=%f,%f,home~%f,%f,flag", u.Longitude, u.Latitude, u.Longitude, u.Latitude, crime.Longitude, crime.Latitude))
-						if err != nil {
-							fmt.Println(err)
-						}
-						defer resp.Body.Close()
-						out, err := os.Create("filename.png")
-						if err != nil {
-							fmt.Println(err)
-						}
-						io.Copy(out, resp.Body)
-						defer out.Close()
-						sendUser := &tb.User{ID: u.ID}
-						distanceString := fmt.Sprintf("%f m", distance)
-						photo := &tb.Photo{File: tb.FromDisk("filename.png"), Caption: "Location: " + crime.LocationName + "\nDescription: " + crime.Description + "\nDeistance: " + distanceString}
-						b.Send(sendUser, photo)
-					}
-
-				}
-			}
-		}()
-
-		log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
-		<-forever
-	}()
-
-	endpoints := t_bot.NewEndpointsFactory(db)
-
-	endpointsUser := t_bot.EndpointsFactoryUser(dbuser)
+	endpointsUser := t_bot.EndpointsFactoryUser(dbuser, c, ctx)
 
 	b.Handle("/start", endpoints.Hello(b, endpointsUser))
 	b.Handle(&t_bot.ReplyBtn3, endpoints.Input(b))
