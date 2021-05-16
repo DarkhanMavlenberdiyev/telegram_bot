@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gospodinzerkalo/crime_city_api/pb"
+	"google.golang.org/grpc/status"
 	"io"
 	"log"
 	"math"
@@ -133,7 +134,11 @@ func (ef *endpointsFactory) GetHome(b *tb.Bot) func(m *tb.Callback) {
 		//res, err := ef.usersInfo.GetUser(m.Sender.ID)
 		res, err := ef.crimeService.GetHome(ef.ctx, &pb.GetHomeRequest{Id: int64(m.Sender.ID)})
 		if err != nil {
-			log.Println(err)
+			st, ok := status.FromError(err)
+			if ok {
+				log.Println(st.Err())
+				log.Println(st.Code())
+			}
 			b.Respond(m, &tb.CallbackResponse{Text: "Please. Try again", ShowAlert: true})
 		}else {
 			long := fmt.Sprintf("%f", res.Home.Longitude)
