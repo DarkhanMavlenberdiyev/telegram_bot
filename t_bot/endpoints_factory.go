@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gospodinzerkalo/crime_city_api/pb"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"os"
@@ -129,16 +130,14 @@ func (ef *endpointsFactory) Hello(b *tb.Bot, endUser *endpointsFactory) func(m *
 
 func (ef *endpointsFactory) GetHome(b *tb.Bot) func(m *tb.Callback) {
 	return func(m *tb.Callback) {
-		res, err := ef.usersInfo.GetUser(m.Sender.ID)
+		//res, err := ef.usersInfo.GetUser(m.Sender.ID)
+		res, err := ef.crimeService.GetHome(ef.ctx, &pb.GetHomeRequest{Id: int64(m.Sender.ID)})
 		if err != nil {
+			log.Println(err)
 			b.Respond(m, &tb.CallbackResponse{Text: "Please. Try again", ShowAlert: true})
-		}
-		if res.IsHome == false {
-			b.Respond(m, &tb.CallbackResponse{Text: "Home location is not found", ShowAlert: true})
-			return
-		} else {
-			long := fmt.Sprintf("%f", res.Longitude)
-			lat := fmt.Sprintf("%f", res.Latitude)
+		}else {
+			long := fmt.Sprintf("%f", res.Home.Longitude)
+			lat := fmt.Sprintf("%f", res.Home.Latitude)
 			photo := &tb.Photo{File: tb.FromDisk(fmt.Sprintf("images/%f.jpg", m.Sender.ID)), Caption: "Your Location \nLongitude: " + long + "\nLatitude: " + lat}
 			b.Send(m.Sender, photo)
 			b.Send(m.Sender, ">>", &tb.ReplyMarkup{InlineKeyboard: homeKeys})
@@ -155,23 +154,7 @@ func (ef *endpointsFactory) ListHomeKeys(b *tb.Bot) func(m *tb.Message) {
 
 func (ef *endpointsFactory) DeleteHome(b *tb.Bot) func(m *tb.Callback) {
 	return func(m *tb.Callback) {
-		getUser, _ := ef.usersInfo.GetUser(m.Sender.ID)
-		if getUser.IsHome == false {
-			b.Respond(m, &tb.CallbackResponse{Text: "Home location is not exist", ShowAlert: true})
-			return
-		}
-		user := &Users{
-			ID:        m.Sender.ID,
-			FirstName: m.Sender.FirstName,
-			LastName:  m.Sender.LastName,
-			UserName:  m.Sender.Username,
-			Longitude: 0,
-			Latitude:  0,
-			Image:     "",
-			History:   getUser.History,
-			IsHome:    false,
-		}
-		_, err := ef.usersInfo.UpdateUser(m.Sender.ID, user)
+		_, err := ef.crimeService.DeleteHome(ef.ctx, &pb.DeleteHomeRequest{Id: int64(m.Sender.ID)})
 		if err != nil {
 			b.Respond(m, &tb.CallbackResponse{Text: "Can't delete home location. Try again!", ShowAlert: true})
 

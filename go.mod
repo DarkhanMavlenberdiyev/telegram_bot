@@ -13,3 +13,7 @@ require (
 	gopkg.in/tucnak/telebot.v2 v2.3.5
 	mellium.im/sasl v0.2.1 // indirect
 )
+
+replace (
+	github.com/gospodinzerkalo/crime_city_api => ../crime_city_api
+)
