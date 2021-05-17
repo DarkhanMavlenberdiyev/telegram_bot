@@ -2,6 +2,7 @@ package t_bot
 
 import (
 	"errors"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -13,6 +14,7 @@ var (
 )
 
 func fromGRPCErr(err error) error {
+	log.Error(err)
 	st, _ := status.FromError(err)
 	switch st.Code() {
 	case codes.NotFound:

@@ -221,18 +221,26 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 
 func (ef *endpointsFactory) HomeCheck(b *tb.Bot, end *endpointsFactory) func(c *tb.Callback) {
 	return func(c *tb.Callback) {
-		crimes, _ := end.crimeEvents.GetAllCrimes()
-		user, _ := ef.usersInfo.GetUser(c.Sender.ID)
-		//fmt.Println(crimes)
-		if len(crimes) >= 0 {
-			minDistance := math.MaxFloat64
-			resCrime := crimes[0]
+		crimes, err := ef.crimeService.GetCrimes(ef.ctx, &pb.GetCrimesRequest{})
+		if err != nil {
+			er := fromGRPCErr(err)
+			b.Respond(c, &tb.CallbackResponse{Text: er.Error(), ShowAlert: true})
+		}
+		user, err := ef.crimeService.GetHome(ef.ctx, &pb.GetHomeRequest{Id: int64(c.Sender.ID)})
+		if err != nil {
+			er := fromGRPCErr(err)
+			b.Respond(c, &tb.CallbackResponse{Text: er.Error(), ShowAlert: true})
+		}
 
-			for _, crime := range crimes {
+		if len(crimes.Crimes) >= 0 {
+			minDistance := math.MaxFloat64
+			resCrime := crimes.Crimes[0]
+
+			for _, crime := range crimes.Crimes {
 				fmt.Println(crime.Date, Current)
 				datee, _ := time.Parse(LayoutISO, crime.Date)
 				dat := datee.Format(LayoutISO)
-				distance := DistanceBetweenTwoLongLat(user.Latitude, user.Longitude, crime.Latitude, crime.Longitude)
+				distance := DistanceBetweenTwoLongLat(user.Home.Latitude, user.Home.Longitude, crime.Latitude, crime.Longitude)
 				if distance < minDistance && dat == Current {
 					minDistance = distance
 					resCrime = crime
@@ -242,7 +250,8 @@ func (ef *endpointsFactory) HomeCheck(b *tb.Bot, end *endpointsFactory) func(c *
 			dat := datee.Format(LayoutISO)
 			fmt.Println(dat)
 			if dat == Current {
-				resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=14&l=map&pt=%f,%f,home~%f,%f,flag", user.Longitude, user.Latitude, user.Longitude, user.Latitude, resCrime.Longitude, resCrime.Latitude))
+				resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=14&l=map&pt=%f,%f,home~%f,%f,flag",
+					user.Home.Longitude, user.Home.Latitude, user.Home.Longitude, user.Home.Latitude, resCrime.Longitude, resCrime.Latitude))
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -327,11 +336,16 @@ func (ef *endpointsFactory) GetRad4(b *tb.Bot, endUser *endpointsFactory) func(c
 
 func GetCrime(ef *endpointsFactory, b *tb.Bot, m *tb.Callback, r float64, lat float64, lng float64, endUser *endpointsFactory) {
 	b.Delete(m.Message)
-	crimes, _ := ef.crimeEvents.GetAllCrimes()
+	crimes, err := ef.crimeService.GetCrimes(ef.ctx, &pb.GetCrimesRequest{})
+	if err != nil {
+		er := fromGRPCErr(err)
+		b.Respond(m, &tb.CallbackResponse{Text: er.Error(), ShowAlert: true})
+		return
+	}
 	minDistance := math.MaxFloat64
-	resCrime := crimes[0]
+	resCrime := crimes.Crimes[0]
 
-	for _, crime := range crimes {
+	for _, crime := range crimes.Crimes {
 		distance := DistanceBetweenTwoLongLat(lat, lng, crime.Latitude, crime.Longitude)
 
 		datee, _ := time.Parse(LayoutISO, crime.Date)
@@ -359,9 +373,9 @@ func GetCrime(ef *endpointsFactory, b *tb.Bot, m *tb.Callback, r float64, lat fl
 		hist, _ := endUser.usersInfo.GetUser(m.Sender.ID)
 		updHist := ""
 		if len(hist.History) == 0 {
-			updHist = hist.History + " " + strconv.Itoa(resCrime.ID)
+			updHist = hist.History + " " + strconv.Itoa(resCrime.Id)
 		} else {
-			updHist = strconv.Itoa(resCrime.ID)
+			updHist = strconv.Itoa(resCrime.Id)
 		}
 		updUser := &Users{
 			ID:        m.Sender.ID,
