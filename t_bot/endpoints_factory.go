@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gospodinzerkalo/crime_city_api/pb"
-	"google.golang.org/grpc/status"
 	"io"
-	"log"
 	"math"
 	"net/http"
 	"os"
@@ -134,12 +132,8 @@ func (ef *endpointsFactory) GetHome(b *tb.Bot) func(m *tb.Callback) {
 		//res, err := ef.usersInfo.GetUser(m.Sender.ID)
 		res, err := ef.crimeService.GetHome(ef.ctx, &pb.GetHomeRequest{Id: int64(m.Sender.ID)})
 		if err != nil {
-			st, ok := status.FromError(err)
-			if ok {
-				log.Println(st.Err())
-				log.Println(st.Code())
-			}
-			b.Respond(m, &tb.CallbackResponse{Text: "Please. Try again", ShowAlert: true})
+			er := fromGRPCErr(err)
+			b.Respond(m, &tb.CallbackResponse{Text: er.Error(), ShowAlert: true})
 		}else {
 			long := fmt.Sprintf("%f", res.Home.Longitude)
 			lat := fmt.Sprintf("%f", res.Home.Latitude)
@@ -161,7 +155,8 @@ func (ef *endpointsFactory) DeleteHome(b *tb.Bot) func(m *tb.Callback) {
 	return func(m *tb.Callback) {
 		_, err := ef.crimeService.DeleteHome(ef.ctx, &pb.DeleteHomeRequest{Id: int64(m.Sender.ID)})
 		if err != nil {
-			b.Respond(m, &tb.CallbackResponse{Text: "Can't delete home location. Try again!", ShowAlert: true})
+			er := fromGRPCErr(err)
+			b.Respond(m, &tb.CallbackResponse{Text: "Can't delete home location: " + er.Error(), ShowAlert: true})
 
 		} else {
 			b.Respond(m, &tb.CallbackResponse{Text: "Home location is successfully deleted"})
@@ -173,12 +168,12 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 	return func(m *tb.Callback) {
 		getUser, err := ef.crimeService.GetHome(ef.ctx, &pb.GetHomeRequest{Id: int64(m.Sender.ID)})
 		//if err != nil {
-		//	fmt.Println(err)
-		//	b.Respond(m, &tb.CallbackResponse{Text: "Some error, try again... ", ShowAlert: true})
+		//	er := fromGRPCErr(err)
+		//	b.Respond(m, &tb.CallbackResponse{Text: er.Error(), ShowAlert: true})
 		//	return
 		//}
 		if getUser != nil {
-			b.Respond(m, &tb.CallbackResponse{Text: "Home location is already exists... ", ShowAlert: true})
+			b.Respond(m, &tb.CallbackResponse{Text: ErrorAlreadyExist.Error(), ShowAlert: true})
 			return
 		}
 
@@ -189,7 +184,6 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 		})
 
 		res := <-loc
-		fmt.Println(res)
 
 		user := &pb.Home{
 			Id:        int64(m.Sender.ID),
