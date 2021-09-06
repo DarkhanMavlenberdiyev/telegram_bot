@@ -136,10 +136,16 @@ func (ef *endpointsFactory) GetHome(b *tb.Bot) func(m *tb.Callback) {
 			er := fromGRPCErr(err)
 			b.Respond(m, &tb.CallbackResponse{Text: er.Error(), ShowAlert: true})
 		}else {
-			long := fmt.Sprintf("%f", res.Home.Longitude)
-			lat := fmt.Sprintf("%f", res.Home.Latitude)
-			photo := &tb.Photo{File: tb.FromDisk(fmt.Sprintf("images/%f.jpg", m.Sender.ID)), Caption: "Your Location \nLongitude: " + long + "\nLatitude: " + lat}
-			b.Send(m.Sender, photo)
+			//long := fmt.Sprintf("%f", res.Home.Longitude)
+			//lat := fmt.Sprintf("%f", res.Home.Latitude)
+			//photo := &tb.Photo{File: tb.FromDisk(fmt.Sprintf("images/%f.jpg", m.Sender.ID)), Caption: "Your Location \nLongitude: " + long + "\nLatitude: " + lat}
+			loc := &tb.Location{
+				Lat:       float32(res.Home.GetLatitude()),
+				Lng:        float32(res.Home.GetLongitude()),
+				LivePeriod: 60,
+			}
+			b.Send(m.Sender, loc)
+			b.Send(m.Sender, fmt.Sprintf("Your Location \nLongitude: %f\nLatitude: %f", res.Home.GetLatitude(), res.Home.GetLongitude()))
 			b.Send(m.Sender, ">>", &tb.ReplyMarkup{InlineKeyboard: homeKeys})
 		}
 	}
