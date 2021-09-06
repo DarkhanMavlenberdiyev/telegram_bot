@@ -34,13 +34,13 @@ func main() {
 
 func StartBot(d *cli.Context) error {
 	b, err := tb.NewBot(tb.Settings{
-		Token:  "",
+		Token:  "1065088890:AAHsp6mSFeTC0mf3sZ5WEi8ODL4ZfxHi1cg",
 		URL:    "",
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 	})
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(err, "DD")
 		return err
 	}
 
@@ -48,7 +48,7 @@ func StartBot(d *cli.Context) error {
 
 	user := t_bot.PostgreConfig{
 		User:     "postgres",
-		Password: "pass",
+		Password: "sheha2003",
 		Port:     "5432", //5432
 		Host:     "localhost",
 	}
@@ -160,6 +160,7 @@ func StartBot(d *cli.Context) error {
 	b.Handle(&t_bot.HistoryClear, endpointsUser.ClearHistory(b))
 	b.Handle(tb.OnText, endpoints.Help(b))
 
+	fmt.Println("BOT STARTED!!!")
 	b.Start()
 	return nil
 }

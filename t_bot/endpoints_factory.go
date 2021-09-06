@@ -1,6 +1,7 @@
 package t_bot
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/gospodinzerkalo/crime_city_api/pb"
@@ -221,58 +222,67 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 
 func (ef *endpointsFactory) HomeCheck(b *tb.Bot, end *endpointsFactory) func(c *tb.Callback) {
 	return func(c *tb.Callback) {
-		crimes, err := ef.crimeService.GetCrimes(ef.ctx, &pb.GetCrimesRequest{})
+		//crimes, err := ef.crimeService.GetCrimes(ef.ctx, &pb.GetCrimesRequest{})
+		//if err != nil {
+		//	er := fromGRPCErr(err)
+		//	b.Respond(c, &tb.CallbackResponse{Text: er.Error(), ShowAlert: true})
+		//}
+		user, err := ef.crimeService.CheckHome(ef.ctx, &pb.CheckHomeRequest{Id: int64(c.Sender.ID)})
 		if err != nil {
 			er := fromGRPCErr(err)
 			b.Respond(c, &tb.CallbackResponse{Text: er.Error(), ShowAlert: true})
 		}
-		user, err := ef.crimeService.GetHome(ef.ctx, &pb.GetHomeRequest{Id: int64(c.Sender.ID)})
-		if err != nil {
-			er := fromGRPCErr(err)
-			b.Respond(c, &tb.CallbackResponse{Text: er.Error(), ShowAlert: true})
-		}
 
-		if len(crimes.Crimes) >= 0 {
-			minDistance := math.MaxFloat64
-			resCrime := crimes.Crimes[0]
-
-			for _, crime := range crimes.Crimes {
-				fmt.Println(crime.Date, Current)
-				datee, _ := time.Parse(LayoutISO, crime.Date)
-				dat := datee.Format(LayoutISO)
-				distance := DistanceBetweenTwoLongLat(user.Home.Latitude, user.Home.Longitude, crime.Latitude, crime.Longitude)
-				if distance < minDistance && dat == Current {
-					minDistance = distance
-					resCrime = crime
-				}
-			}
-			datee, _ := time.Parse(LayoutISO, resCrime.Date)
-			dat := datee.Format(LayoutISO)
-			fmt.Println(dat)
-			if dat == Current {
-				resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=14&l=map&pt=%f,%f,home~%f,%f,flag",
-					user.Home.Longitude, user.Home.Latitude, user.Home.Longitude, user.Home.Latitude, resCrime.Longitude, resCrime.Latitude))
-				if err != nil {
-					fmt.Println(err)
-				}
-				defer resp.Body.Close()
-				out, err := os.Create(fmt.Sprintf("images/%v%v.jpg", "homeLoc", c.Sender.ID))
-				if err != nil {
-					fmt.Println(err)
-				}
-				io.Copy(out, resp.Body)
-				defer out.Close()
-				distStr := fmt.Sprintf("%f m", minDistance*1000)
-				photo := &tb.Photo{File: tb.FromDisk(fmt.Sprintf("images/%v%v.jpg", "homeLoc", c.Sender.ID)), Caption: "Location: " + resCrime.LocationName + "\nDescription: " + resCrime.Description + "\nDistance: " + distStr}
-				b.Send(c.Sender, photo)
-				b.Send(c.Sender, ">>", &tb.ReplyMarkup{InlineKeyboard: homeKeys})
-
-			} else {
-				b.Respond(c, &tb.CallbackResponse{Text: "There are no crime events"})
-			}
-		} else {
+		if user != nil {
+			body := bytes.NewReader(user.MapImage)
+			photo := &tb.Photo{File: tb.FromReader(body), Caption: fmt.Sprintf("Location: %s \nDescription: %s \nDistance: %d", user.LocationName, user.Description, user.Distance)}
+			b.Send(c.Sender, photo)
+			b.Send(c.Sender, ">>", &tb.ReplyMarkup{InlineKeyboard: homeKeys})
+		}else {
 			b.Respond(c, &tb.CallbackResponse{Text: "There are no crime events"})
 		}
+
+		//if len(crimes.Crimes) >= 0 {
+		//	minDistance := math.MaxFloat64
+		//	resCrime := crimes.Crimes[0]
+		//
+		//	for _, crime := range crimes.Crimes {
+		//		fmt.Println(crime.Date, Current)
+		//		datee, _ := time.Parse(LayoutISO, crime.Date)
+		//		dat := datee.Format(LayoutISO)
+		//		distance := DistanceBetweenTwoLongLat(user.Home.Latitude, user.Home.Longitude, crime.Latitude, crime.Longitude)
+		//		if distance < minDistance && dat == Current {
+		//			minDistance = distance
+		//			resCrime = crime
+		//		}
+		//	}
+		//	datee, _ := time.Parse(LayoutISO, resCrime.Date)
+		//	dat := datee.Format(LayoutISO)
+		//	fmt.Println(dat)
+		//	if dat == Current {
+		//		resp, err := http.Get(fmt.Sprintf("https://static-maps.yandex.ru/1.x/?ll=%f,%f&size=450,450&z=14&l=map&pt=%f,%f,home~%f,%f,flag",
+		//			user.Home.Longitude, user.Home.Latitude, user.Home.Longitude, user.Home.Latitude, resCrime.Longitude, resCrime.Latitude))
+		//		if err != nil {
+		//			fmt.Println(err)
+		//		}
+		//		defer resp.Body.Close()
+		//		out, err := os.Create(fmt.Sprintf("images/%v%v.jpg", "homeLoc", c.Sender.ID))
+		//		if err != nil {
+		//			fmt.Println(err)
+		//		}
+		//		io.Copy(out, resp.Body)
+		//		defer out.Close()
+		//		distStr := fmt.Sprintf("%f m", minDistance*1000)
+		//		photo := &tb.Photo{File: tb.FromDisk(fmt.Sprintf("images/%v%v.jpg", "homeLoc", c.Sender.ID)), Caption: "Location: " + resCrime.LocationName + "\nDescription: " + resCrime.Description + "\nDistance: " + distStr}
+		//		b.Send(c.Sender, photo)
+		//		b.Send(c.Sender, ">>", &tb.ReplyMarkup{InlineKeyboard: homeKeys})
+		//
+		//	} else {
+		//		b.Respond(c, &tb.CallbackResponse{Text: "There are no crime events"})
+		//	}
+		//} else {
+		//	b.Respond(c, &tb.CallbackResponse{Text: "There are no crime events"})
+		//}
 	}
 }
 
@@ -373,9 +383,9 @@ func GetCrime(ef *endpointsFactory, b *tb.Bot, m *tb.Callback, r float64, lat fl
 		hist, _ := endUser.usersInfo.GetUser(m.Sender.ID)
 		updHist := ""
 		if len(hist.History) == 0 {
-			updHist = hist.History + " " + strconv.Itoa(resCrime.Id)
+			updHist = hist.History + " " + strconv.Itoa(int(resCrime.Id))
 		} else {
-			updHist = strconv.Itoa(resCrime.Id)
+			updHist = strconv.Itoa(int(resCrime.Id))
 		}
 		updUser := &Users{
 			ID:        m.Sender.ID,
