@@ -46,16 +46,6 @@ func StartBot(d *cli.Context) error {
 
 	// geocoder := opencagedata.NewGeocoder("cece8bb38d4a4128a1d97760945dea6c")
 
-	user := t_bot.PostgreConfig{
-		User:     "postgres",
-		Password: "sheha2003",
-		Port:     "5432", //5432
-		Host:     "localhost",
-	}
-
-	db := t_bot.NewPostgreBot(user)
-	dbuser := t_bot.PostgreUser(user)
-	//users, _ := dbuser.GetAllUser()
 
 	//go func() {
 	//	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
@@ -138,26 +128,22 @@ func StartBot(d *cli.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	endpoints := t_bot.NewEndpointsFactory(db, c, ctx)
+	endpoints := t_bot.NewEndpointsFactory(c, ctx)
 
-	endpointsUser := t_bot.EndpointsFactoryUser(dbuser, c, ctx)
 
-	b.Handle("/start", endpoints.Hello(b, endpointsUser))
+	b.Handle("/start", endpoints.Hello(b, endpoints))
 	b.Handle(&t_bot.ReplyBtn3, endpoints.Input(b))
-	b.Handle(&t_bot.HomeAdd, endpointsUser.AddHome(b, endpoints))
-	b.Handle(&t_bot.HomeMy, endpointsUser.GetHome(b))
-	b.Handle(&t_bot.HomeDel, endpointsUser.DeleteHome(b))
-	b.Handle(&t_bot.CheckHome, endpointsUser.HomeCheck(b, endpoints))
+	b.Handle(&t_bot.HomeAdd, endpoints.AddHome(b, endpoints))
+	b.Handle(&t_bot.HomeMy, endpoints.GetHome(b))
+	b.Handle(&t_bot.HomeDel, endpoints.DeleteHome(b))
+	b.Handle(&t_bot.CheckHome, endpoints.HomeCheck(b, endpoints))
 	b.Handle(&t_bot.ReplyHome, endpoints.ListHomeKeys(b))
 	b.Handle(&t_bot.ReplyHelp, endpoints.Help(b))
 	b.Handle(&t_bot.ComeBack, endpoints.BackMenu(b))
-	b.Handle(&t_bot.Rad1, endpoints.GetRad1(b, endpointsUser))
-	b.Handle(&t_bot.Rad2, endpoints.GetRad2(b, endpointsUser))
-	b.Handle(&t_bot.Rad3, endpoints.GetRad3(b, endpointsUser))
-	b.Handle(&t_bot.Rad4, endpoints.GetRad4(b, endpointsUser))
-	b.Handle(&t_bot.ReplyHist, endpoints.ToHistory(b, endpointsUser))
-	b.Handle(&t_bot.HistoryAll, endpoints.GetAllHistory(b))
-	b.Handle(&t_bot.HistoryClear, endpointsUser.ClearHistory(b))
+	b.Handle(&t_bot.Rad1, endpoints.GetRad1(b, endpoints))
+	b.Handle(&t_bot.Rad2, endpoints.GetRad2(b, endpoints))
+	b.Handle(&t_bot.Rad3, endpoints.GetRad3(b, endpoints))
+	b.Handle(&t_bot.Rad4, endpoints.GetRad4(b, endpoints))
 	b.Handle(tb.OnText, endpoints.Help(b))
 
 	fmt.Println("BOT STARTED!!!")
