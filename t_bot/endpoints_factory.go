@@ -228,11 +228,6 @@ func (ef *endpointsFactory) AddHome(b *tb.Bot, end *endpointsFactory) func(m *tb
 
 func (ef *endpointsFactory) HomeCheck(b *tb.Bot, end *endpointsFactory) func(c *tb.Callback) {
 	return func(c *tb.Callback) {
-		//crimes, err := ef.crimeService.GetCrimes(ef.ctx, &pb.GetCrimesRequest{})
-		//if err != nil {
-		//	er := fromGRPCErr(err)
-		//	b.Respond(c, &tb.CallbackResponse{Text: er.Error(), ShowAlert: true})
-		//}
 		user, err := ef.crimeService.CheckHome(ef.ctx, &pb.CheckHomeRequest{Id: int64(c.Sender.ID)})
 		if err != nil {
 			er := fromGRPCErr(err)

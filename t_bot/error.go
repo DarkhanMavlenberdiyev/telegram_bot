@@ -11,15 +11,19 @@ var (
 	ErrorHomeNotFound = errors.New("home location is not found")
 	ErrorAlreadyExist = errors.New("home location is already exist")
 	ErrorInternal= errors.New("some error, please try again")
+	ErrorUnavailable= errors.New("service unavailable :(")
 )
 
 func fromGRPCErr(err error) error {
-	log.Error(err)
 	st, _ := status.FromError(err)
+	log.Error(err)
 	switch st.Code() {
 	case codes.NotFound:
 		return ErrorHomeNotFound
+	case codes.Unavailable:
+		return  ErrorUnavailable
 	default:
-		return ErrorHomeNotFound
+		return ErrorInternal
+
 	}
 }
