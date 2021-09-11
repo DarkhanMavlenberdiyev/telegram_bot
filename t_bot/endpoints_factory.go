@@ -208,7 +208,7 @@ func (ef *endpointsFactory) HomeCheck(b *tb.Bot, end *endpointsFactory) func(c *
 
 		if user != nil {
 			body := bytes.NewReader(user.MapImage)
-			photo := &tb.Photo{File: tb.FromReader(body), Caption: fmt.Sprintf("Location: %s \nDescription: %s \nDistance: %d", user.LocationName, user.Description, user.Distance)}
+			photo := &tb.Photo{File: tb.FromReader(body), Caption: fmt.Sprintf("Location: %s \nDescription: %s \nDistance: %fkm", user.LocationName, user.Description, user.Distance)}
 			b.Send(c.Sender, photo)
 			b.Send(c.Sender, ">>", &tb.ReplyMarkup{InlineKeyboard: homeKeys})
 		}else {
