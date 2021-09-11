@@ -6,6 +6,7 @@ require (
 	github.com/go-pg/pg v8.0.7+incompatible
 	github.com/gospodinzerkalo/crime_city_api v0.0.0-20210905103756-7a0d8e001bc8
 	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/joho/godotenv v1.3.0
 	github.com/onsi/gomega v1.12.0 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/urfave/cli/v2 v2.3.0

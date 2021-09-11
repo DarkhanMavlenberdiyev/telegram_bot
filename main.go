@@ -1,10 +1,12 @@
 package main
 
 import (
+
 	"context"
 	"fmt"
 	"github.com/gospodinzerkalo/crime_city_api/pb"
 	"github.com/gospodinzerkalo/crime_city_telegram_bot-Golang-/t_bot"
+	"github.com/joho/godotenv"
 	"github.com/urfave/cli/v2"
 	"google.golang.org/grpc"
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -17,6 +19,20 @@ const (
 	address     = "localhost:50051"
 )
 
+var (
+	configPath 	= "./"
+	tgToken = ""
+
+	flags = []cli.Flag{
+		&cli.StringFlag{
+			Name:        "config, c",
+			Usage:       "path to .env config file",
+			Aliases: []string{"c"},
+			Destination: &configPath,
+		},
+	}
+)
+
 func main() {
 
 	app := cli.NewApp()
@@ -26,15 +42,27 @@ func main() {
 			Name:   "start",
 			Usage:  "start the bot",
 			Action: StartBot,
+			Flags: flags,
 		},
 	}
 	app.Run(os.Args)
 
 }
 
+func parseEnv() {
+	if configPath != "" {
+		godotenv.Overload(configPath)
+	}
+	tgToken = os.Getenv("TG_TOKEN")
+	if tgToken == "" {
+		panic("Telegram token is required")
+	}
+}
+
 func StartBot(d *cli.Context) error {
+	parseEnv()
 	b, err := tb.NewBot(tb.Settings{
-		Token:  "1065088890:AAHsp6mSFeTC0mf3sZ5WEi8ODL4ZfxHi1cg",
+		Token:  tgToken,
 		URL:    "",
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 	})
